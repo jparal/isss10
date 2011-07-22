@@ -1,0 +1,49 @@
+      parameter (ncx=402, nbb=100000, nss=2) 
+c
+      common /part/ vx(nbb),vy(nbb),vz(nbb),x(nbb)
+c
+c  ncx contains two ghost cells
+c  nss is the number of activ species
+c  set nbb to the total number of particles for all species combined,
+c
+      common /fields/ ex(ncx), ey(ncx), ez(ncx),
+     &                         by(ncx), bz(ncx),
+     &                         curley(ncx),curlez(ncx),
+     &                ext(ncx),eyt(ncx),ezt(ncx),
+     &                         byt(ncx),bzt(ncx)
+c
+      common /elec/ pe(ncx),  eta(ncx),
+     &              foy(ncx), foz(ncx)
+c
+      common /ions/ den(ncx), deno(ncx),
+     & vix(ncx),  viy(ncx),  viz(ncx),
+     & vixo(ncx), viyo(ncx), vizo(ncx),
+     & vxs(ncx,nss), vys(ncx,nss), vzs(ncx,nss),
+     & dns(ncx,nss), densit(ncx,nss),
+     & tpar(ncx,nss), tperp(ncx,nss), trat(ncx,nss)
+c
+      common /params_r/  hx, hxi, bxc,
+     &  byc, bzc, bete, te0, xmax, dt, t, resis, dtwci,
+     &  theta,wpiwci,
+     &  pifac,gammae,kspec,
+     &  denmin,title 
+c
+      common /params_ra/ frac(nss),dfac(nss),
+     &  anspec(nss),btspec(nss), qspec(nss),
+     &  wspec(nss),tx0(nss),vper(nss),vpar(nss),
+     &  vxspec(nss), vyspec(nss), vzspec(nss),
+     &  vbx(nss), vby(nss), vbz(nss)
+c
+	   common /params_i/ it, nx, nx1, nx2,
+     &  idarec,ipc, 
+     &  l3, l4, nc, nsp, ntot,iterf,icycle,intwrt,isp,
+     &  ibxy, nskip, nwrtf, npltf
+c
+	  common /params_ia/ 
+     &  npx(nss), nspecm(nss), nspec0(nss), nspec1(nss), nspec2(nss),
+     &  nparh(nss)
+c
+      common /ranseed/iseed
+c
+      character title*40
+

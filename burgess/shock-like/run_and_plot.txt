@@ -1,0 +1,65 @@
+Instructions
+============
+
+
+(When using Microsoft Windows, first open a DOS window via 
+start/all programs/accessories/Command Prompt.  
+Gnuplot under windows is typically called wgnuplot.  Run wgnuplot 
+from an existing desktop shortcut, or create such a shortcut, 
+or run it from the installation directory)
+
+
+
+1. use gfortran to compile:
+---------------------------
+
+- in a command prompt/console window,
+  change directory to folder containing source code using
+  cd [directory_name] until you arrive at the destination
+  you can also move up with the command: cd .. 
+  you can determine the current directory with: pwd
+
+- compile the source code with:
+
+  gfortran -O2 1d_hybrid.F -o hyb.exe
+
+  ...which will provide the executable hyb.exe
+
+*** Note for other compilers: you may have to change the
+*** random number generator call - see last 12 lines of
+*** source code for example how to do this. 
+
+
+
+2. run from the command prompt:
+-------------------------------
+
+- use "cp" to copy one of the input files into a file called "input.txt"
+
+- run hyb.exe from the command prompt ("./hyb.exe" under Linux or Unix)
+
+
+
+3. use gnuplot to plot one of the data files:
+---------------------------------------------
+
+- change directories within gnuplot:
+
+  you may be able to use the "file --> Change Directory" feature to do this
+
+  note that you may not be able to use "wild cards"
+  note that you need to include all expressions in quotes
+  example: 
+
+     pwd
+     cd "../.."  (to move up two levels)
+     cd "Documents and Settings" (windows example)
+     cd "ISSS-9_DKV" or similar
+
+- for most plotting, enable 2-D images by typing:
+
+     set style data image
+
+- then plot any of the produced ASCII data files:
+
+  plot "by.dat"

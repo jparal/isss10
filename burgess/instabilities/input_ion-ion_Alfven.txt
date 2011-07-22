@@ -1,0 +1,14 @@
+  $datum
+
+   nx=200,   xmax= 20.0,  npx=25000, 25000,
+   nsp=2, nspecm=25000, 25000,
+   ntimes=6000, dtwci=0.02,  iterf=8, 
+   nwrtf= 50,   intwrt=10,
+   vxspec=1.0,-1.0,
+   anspec=2.0,2.0,
+   btspec=0.1, 0.1, bete=0.05, gammae=1.0,
+   frac(1)=1.0, frac(2)=1.0,
+   resis=0.0e-4, ibxy=1,
+   theta=75.0
+  
+  /
