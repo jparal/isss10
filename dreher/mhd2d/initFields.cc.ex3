@@ -1,5 +1,5 @@
 // -*- C++ -*-
-// $Id: initFields.cc,v 1.11 2011/07/21 14:49:48 jd Exp $
+// $Id: initFields.cc.ex3,v 1.1 2011/07/21 16:11:48 jd Exp $
 
 #include <cmath>
 #include "global.h"
@@ -21,20 +21,29 @@ namespace mhd2d
       for(int i=-2; i<nx+2; i++){
         // x-center of current cells
         const real x = xcenter(i);
-        
-        // Alfven wave parameters
-        const real A = 1e-4;
-        const real k = 2*M_PI / (xmax-xmin);
-        const real rho0 = 1.;
 
-        // set the field variables
-        rho(i, j) = rho0;
-        ux(i, j) = 0.;
-        uy(i, j) = A * rho0 * sin(k*x);
-        bx(i, j) = 1.;
-        by(i, j) = A * sqrt(rho0) * sin(k*x);
-        
-        const real p = 1.;
+        real p;
+
+        if(x < -.4 ){
+          // set the field variables
+          rho(i, j) = 5;
+          ux(i, j) = 10;
+          uy(i, j) = 0.;
+          bx(i, j) = 0.;
+          by(i, j) = 0.5;
+          p=200;
+        }else{
+          rho(i, j) = 1;
+          ux(i, j) = 0;
+          uy(i, j) = 0.;
+          bx(i, j) = 0.;
+          by(i, j) = 5.;
+          p=1;
+        }
+
+        if(x*x + y*y < .15*.15){
+          rho(i, j) = 100.;
+        }
 
         // internal energy is computed from p according to its definition
         e(i, j) = 

@@ -1,13 +1,17 @@
 // -*- C++ -*-
-// $Id: types.h,v 1.6 2011/06/28 07:44:29 jd Exp $
+// $Id: types.h,v 1.7 2011/07/21 09:08:57 jd Exp $
 
 #ifndef TYPES_H
 #define TYPES_H
+
+// definition of arrays. do not change.
 
 namespace mhd2d
 {
   typedef double real;
 
+  inline real sqr(real x) { return x*x; }
+  
   struct Array
   {
     Array();

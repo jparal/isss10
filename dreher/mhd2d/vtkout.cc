@@ -1,5 +1,5 @@
 // -*- C++ -*-
-// $Id: vtkout.cc,v 1.6 2011/06/28 07:44:29 jd Exp $
+// $Id: vtkout.cc,v 1.8 2011/07/21 09:08:57 jd Exp $
 
 #include <cstdio>
 #include <cstdlib>
@@ -7,9 +7,11 @@
 
 #include "global.h"
 
+// output to vtk file. do not change.
+
 namespace mhd2d
 {
-
+  // big <-> little endian swap.
   static float swap(float f)
   {
     float res;
@@ -56,9 +58,9 @@ namespace mhd2d
     writeArray(fp, rho, "rho");
     writeArray(fp, ux, "ux");
     writeArray(fp, uy, "uy");
-//     writeArray(fp, bx, "bx");
-//     writeArray(fp, by, "by");
-    writeArray(fp, w, "W");
+    writeArray(fp, bx, "bx");
+    writeArray(fp, by, "by");
+    writeArray(fp, e, "E");
 
     fclose(fp);
   }

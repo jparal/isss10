@@ -1,9 +1,10 @@
 // -*- C++ -*-
-// $Id: types.cc,v 1.5 2011/06/28 07:44:29 jd Exp $
+// $Id: types.cc,v 1.6 2011/07/21 09:08:57 jd Exp $
 
 #include <cassert>
 #include "types.h"
 
+// implementation of arrays. do not change.
 namespace mhd2d
 {
 
