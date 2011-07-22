@@ -1,0 +1,11 @@
+CC=mpcc_r
+DIM=1D
+TARGET=em$(DIM)3VVlasov
+OPTS=-O4 -q64 -qcpluscmt -qsmp=omp -DIBM -D_HYBRID -D_KAPPA -D_$(DIM) -D_2POP -o $(TARGET) 
+LIBS=-L/ibm_global/gsl/gsl-1.8-64/lib/  -L/usr/local/lib/
+INCL=-I/usr/local/include/ -I/ibm_global/gsl/gsl-1.8-64/include/
+LINK=-lgsl  -lfftw3  -lm
+SOURCE= vlasov.c
+OBJECTS=vlasov.o
+$(TARGET): $(SOURCE)
+	$(CC) $(OPTS) $(LIBS) $(INCL) $(SOURCE) $(LINK) 
