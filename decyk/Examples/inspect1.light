@@ -1,0 +1,10 @@
+ &inspect1
+ BATCH = 1
+ DMETAF = '20', DTYPE = 'A'
+ LTS = 1, ITS = 1, NTS = 4000
+ KXMIN = 0, KXMAX = 39
+ NTD = 4000, NTC = 1333
+ WMIN = 0.000, WMAX =   5.000, DW =   0.010
+ NPLOT = 4, NVF = 2
+ NTR = 0
+ /

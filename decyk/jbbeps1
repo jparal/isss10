@@ -1,0 +1,2 @@
+java -cp jpic1 -Djava.library.path=. bbeps1
+

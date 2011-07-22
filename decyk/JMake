@@ -1,0 +1,82 @@
+#Makefile for 1D PIC codes in new_beps1.source
+# Java Interface
+
+# Mac OS X
+#JSHLB = jnilib
+#JSHOP = -dynamiclib
+# OpenJDK Linux
+JSHLB = so
+JSHOP = -shared
+
+FC90 = gfortran
+FC77 = gfortran
+
+OPTS90 = -O3 -fdefault-real-8 -fPIC
+OPTS77 = -O3 -fdefault-real-8 -fPIC
+
+FOBJS = push1lib.o fft1lib.o field1lib.o init1lib.o diag1lib.o \
+bpush1lib.o dpush1lib.o
+
+JOBJS = jpic1/push1d_j.o jpic1/fft1d_j.o jpic1/field1d_j.o \
+jpic1/init1d_j.o jpic1/diag1d_j.o jpic1/bpush1d_j.o jpic1/dpush1d_j.o
+
+COBJS = jpic1/push1lib_f.o jpic1/fft1lib_f.o jpic1/field1lib_f.o \
+jpic1/init1lib_f.o jpic1/diag1lib_f.o jpic1/bpush1lib_f.o \
+jpic1/dpush1lib_f.o jpic1/dtimer.o
+
+all : jpic1/beps1.class jpic1/bbeps1.class jpic1/dbeps1.class
+
+jpic1/beps1.class : libCJavaInterface.$(JSHLB) jpic1/beps1.java
+	make -C jpic1 beps1.class
+	
+jpic1/bbeps1.class : libCJavaInterface.$(JSHLB) jpic1/bbeps1.java
+	make -C jpic1 bbeps1.class
+
+jpic1/dbeps1.class : libCJavaInterface.$(JSHLB) jpic1/dbeps1.java
+	make -C jpic1 dbeps1.class
+
+libCJavaInterface.$(JSHLB) : jnisubs $(FOBJS) diag1xlib.o input1mod.o
+	$(FC90) $(OPTS90) $(JSHOP) -o libCJavaInterface.$(JSHLB) \
+       $(JOBJS) $(COBJS) $(FOBJS) diag1xlib.o input1mod.o
+
+jnisubs :
+	make -C jpic1
+
+push1lib.o : push1lib.f
+	$(FC77) $(OPTS77) -c push1lib.f
+
+fft1lib.o : fft1lib.f
+	$(FC77) $(OPTS77) -c fft1lib.f
+
+field1lib.o : field1lib.f
+	$(FC77) $(OPTS77) -c field1lib.f
+
+init1lib.o : init1lib.f
+	$(FC77) $(OPTS77) -c init1lib.f
+
+diag1lib.o : diag1lib.f
+	$(FC77) $(OPTS77) -c diag1lib.f
+
+bpush1lib.o : bpush1lib.f
+	$(FC77) $(OPTS77) -c bpush1lib.f
+
+dpush1lib.o : dpush1lib.f
+	$(FC77) $(OPTS77) -c dpush1lib.f
+
+diag1xlib.o : diag1xlib.f input1mod.o
+	$(FC90) $(OPTS90) -c diag1xlib.f
+
+input1mod.o : input1mod.f globals.o
+	$(FC90) $(OPTS90) -c input1mod.f
+
+globals.o : globals.f
+	$(FC90) $(OPTS90) -c globals.f
+
+jclean :
+	make -C jpic1 clean
+
+clean : jclean
+	rm -f $(FOBJS) diag1xlib.o input1mod.o
+
+clobber: clean
+	rm -f *.jnilib *.so

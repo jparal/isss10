@@ -1,0 +1,645 @@
+GLIB: A Portable Fortran Graphics Library
+by
+Viktor K. Decyk, UCLA
+decyk@physics.ucla.edu
+
+Abstract
+
+This document describes a simple, portable, Fortran-based graphics 
+library to plot 1D and 2D data.  The library is based on the GKS 
+standard and produces Tektronix, postscript, NERSC raster format 
+and TIFF output.  Additionally, it can be linked with proprietary 
+GKS libraries to drive other devices, such as X-Windows.
+
+
+I. Introduction
+
+      A portable graphics library GLIB is part of the plasma 
+simulation program BEPS.  This Fortran library can be used 
+independently of BEPS in other Fortran codes, and this document 
+describes how to do so.  The library is intended to produce a 
+family of simple, basic plots for extracting general information 
+from simulations.  It is not intended to produce publication 
+quality graphics.  However, the library can produce output in 
+postscript and TIFF format, which can then be imported into other 
+programs to make presentation graphics if desired.
+
+      At the highest level, GLIB consists of six subroutines.  
+There are two simple line drawing routines for one dimensional 
+data, DISPS and DISPD, two more complex line drawing routines, 
+DISPR and DISPC, and two routines for two dimensional data, CARPET 
+for color maps and CONTUR for contouring.  There are also routines 
+for opening  and closing the graphics devices, setting the number 
+of plots on a page, and choosing a color palette.  The following 
+simple program extract illustrates how to use them:
+
+      program graph_test
+      parameter(nx=64,ny=128)
+      character*72 label, chr
+      dimension a(nx), f(nx,ny)
+c open graphics device
+      call gropen
+c select hot/cold palette
+      call stpalit(1)
+c
+c ............
+c lots of other stuff here
+c ............
+c
+c draw simple plot for 1D array a
+      call disps (a,label,xmin,xmax,999,0,nx,chr,irc)
+c
+c display color map for 2D array f using 16 colors
+      call carpet(f,label,999,0,nx,ny,nx,chr,16,irc)
+c
+c ............
+c lots of other stuff here
+c ............
+c
+c close graphics device
+      call grclose
+      stop
+      end
+
+The subroutine DISPS here will display the array a, and CARPET 
+will display the array f.  Parameters for the display are 
+specified by the arguments which will be described later.  A 
+script called graf has been written to help the user link his or 
+her program with an appropriate graphics device.  If the user's 
+program is stored in a file called graph_test.f, then executing 
+the following command:
+
+      graf graph_test.f
+
+will give the following output:
+
+***********************************************************
+* 2d graphics test program                                *
+***********************************************************
+copyright 1996, regents of the university of california
+written by viktor k. decyk, ucla
+
+Where do you want your graphical output to go?
+
+1. Console
+2. X Windows
+3. Tektronix Terminal
+4. Postscript
+5. Compressed Raster File
+6. Tektronix file
+7. NcarGraphics
+8. No Graphics
+
+Enter 1, 2, 3, 4, 5, 6, 7, or 8, or q=quit:
+
+The user selects his or her output device and the script will 
+compile, link and execute the program.  Not all the choices are 
+always available.  For some choices the output goes to a file and 
+for others the output goes to the screen.  That's all there is to 
+it.
+
+
+II.  Graphics devices which are always supported
+
+      Let us now discuss what these choices mean at greater depth. 
+Four of the choices are always available: Textronix, postscript, 
+compressed raster, and no graphics.  We will discuss these four 
+first.
+
+      Tektronix graphics devices are older style interactive 
+graphics terminals which display in black and white or with 8 
+colors.  They do not require an internet connection and are often 
+very fast.  Although true Tektronix terminals are almost non-
+existent, emulators are available for PCs, Macintoshes and Unix 
+computers.  On a Unix system which supports X-Windows, the command 
+xterm -t will usually bring up a Tektronix window.  For black and 
+white line pictures, or when accessing the computer through a 
+serial connection such as a modem without internet, this is a good 
+choice.  The Tektronix device is interactive and one can change 
+some features of the display while the program is running.  The 
+output can also be directed to a Tektronix file, which will be 
+called agraph.  Some older style printers will accept such files 
+for printing, and a program called gramgk in GLIB is available for 
+displaying such files.  The files are not readable by normal human 
+beings, but are usually compact.  When this choice is selected, 
+the program will ask what kind of Tektronix device you are using:
+
+enter tektronix type:(1=4010,2=4014,3=4014egm,4=4105,5=4207)
+
+The 4010 and 4014 devices are black and white, the 4105 and 4207 
+support 8 colors.  If you don't know what kind of Tektronix device 
+you have, 4010 will always work.
+
+      Postscript refers to a page description language which is 
+understood by many printers.  When this choice is selected, the 
+output will go to a file called pgraph, which one can print or 
+display.  On PCs and Macintoshes a special program is needed to 
+print such files.  On Unix machines the lpr command is usually 
+used.  These files are readable if one knows the postscript 
+language and each page is in an encapsulated form which can be 
+extracted and used by other programs such as TEX.  There are also 
+programs such as ghostview which can display postscript files on 
+the screen.  Postscript files tend to be large, however.  When 
+this choice is selected, the program will ask you to select a 
+format type:
+
+enter format: (1=psp,2=psl,3=gpsp,4=gpsl,5=cpsp,6=cpsl,q=quit)
+
+The formats psp and psl produce black and white output only, 
+which is suitable for line drawings.  Psp gives output in portrait 
+orientation (vertical page), while psl gives landscape orientation 
+(horizontal page).  The formats gpsp and gpsl produce output using 
+gray tones (in portrait and landscape orientation, respectively) 
+which are useful for printing color maps on a black and white 
+printer.  The formats cpsp and cpsl produce output in color and 
+are intended for older style color printers (postscript level 1 
+with extensions).  The files created by this choice are 
+substantially larger than those created by the gray scale format.  
+There are actually two additional choices available, and if the 
+user types ?, the full list is displayed, including the following 
+additional formats:
+
+  7 = psp2 = 720x540 pixels, L2 postscript, portrait
+  8 = psl2 = 720x540 pixels, L2 postscript, landscape 
+
+These two choices also produce color output, but are intended for 
+the newer level 2 postscript devices and the files created are 
+more compact than those needed by level 1 color devices.
+
+      Compressed raster files are a third choice which is always 
+available in GLIB.  These are primarily intended to make movies 
+which can be played back quickly on a computer screen.  The output 
+here will go to a file called mgraph.  When this choice is 
+selected, the program will ask you to select a format type from a 
+list of seven:
+
+enter format: (1=cga,2=ega,3=vga,4=mac1,5=mac2,6=mac3,7=mac4)
+
+These formats were developed by the National Energy Research 
+Supercomputer Center (NERSC) for use with their movie players on 
+IBM PCs and Macintoshes.  They are no longer supported by NERSC, 
+but the players usually still work and the files are very compact.
+A program called pmovie in GLIB can also display such files.  The 
+meaning of the seven choices are:
+
+  1 = cga = 320x200 pixels, 4 colors
+  2 = ega = 640x350 pixels, monochrome
+  3 = vga = 320x200 pixels, 256 colors
+  4 = mac1 = 320x200 pixels, 256 colors
+  5 = mac2 = 320x320 pixels, 256 colors
+  6 = mac3 = 400x400 pixels, 256 colors
+  7 = mac4 = 640x400 pixels, 256 colors
+
+When using the NERSC movie player, the first two choices do not 
+work on the Macintosh version, and the last 4 do not work on the
+PC version.  (Only the vga format works on both versions).  The 
+program pmovie will play all versions.  When more colors and 
+larger resolutions are used, the resulting files are larger and 
+they play more slowly.  Actually more than seven choices are 
+available, and if the user types ?, the full list is displayed, 
+including the following additional formats:
+
+  8 = ascii = 78x22 pixels, 64 printable characters
+  9 = tif1 = 320x200 pixels, monochrome TIFF
+  a = tif2 = 320x200 pixels, 256 color TIFF
+  b = tif3 = 640x400 pixels, monochrome TIFF
+  c = tif4 = 640x400 pixels, 256 color TIFF
+
+Choice number 8 (ascii) is actually an interactive format which 
+will display extremely coarse character plots on the monitor.  
+This is a choice of desperation when you have no graphics device 
+to view the plots.  It can be useful for debugging programs over 
+very slow serial connections.
+
+      The TIFF formats (two for black and white images, two for 
+color) are intended to be exported into other programs for editing 
+and presentation.  The TIFF files contain multiple images in a 
+single file, however, and many TIFF readers cannot read multi-
+image files.  Some which can include GraphicConverter on the 
+Macintosh (available at http://www.lemkesoft.de) and imgview on 
+the SGI machines. GraphicConverter can split a multi-image TIFF 
+file into individual files or convert the multi-image file into 
+QuickTime or GIF movie format.  (The program Sparkle can further 
+convert QuickTime movies into MPEG movies.)  If you make only one 
+image, then all TIFF readers can read them, including Microsoft 
+Word on PCs and Macintoshes and xv on Unix machines.
+
+      A final choice which is always available in GLIB is No 
+Graphics.  This is useful for programs which write data to other 
+devices (such as disk) when the graphical output is sometimes not 
+desired.
+
+
+III.  Graphics devices which are optionally supported
+
+      There are three remaining choices for output device offered 
+by the script graf: Console, X Windows and NcarGraphics.  The 
+graphics library GLIB is written using the subroutine calls in the 
+ANSI/ISO standard called GKS.  For the Tektronix, Postscript, 
+compressed raster, and no graphics, the corresponding GKS 
+interface is always provided.  Other GKS libraries or interfaces 
+can be also used, but they may or may not be available on any 
+given machine.  (By interface we mean a library which translates 
+GKS calls to the calls of some other library.)
+
+      A GKS library which is commonly available comes with 
+NcarGraphics (which is based on GKS).  NcarGraphics is not 
+interactive, and creates its own metafile called gmeta, which can 
+be viewed or printed with a viewer it provides called ctrans.  To 
+view this file on an X-terminal, one executes the command:
+
+ctrans -d X11 gmeta
+
+Other devices and printers are also supported by ctrans.
+
+      Vendors sometimes provide a GKS library for their own 
+machines, and these can also be used with GLIB.  For example, IBM 
+has a GKS library for their RS/6000 workstations which can be used 
+with X-Windows, and DEC has one for the Alpha workstations.  Sun, 
+however, no longer has GKS available.  In those cases where such a 
+library is supported, the option X-Windows will be available.
+
+      There is one GKS interface available in GLIB which 
+translates GKS calls to the graphics library called GL, which is 
+supported on some Unix workstations such as those made by SGI and 
+IBM.  The GL library only works when you are logged onto the 
+console.  In those cases where GL is supported, the option Console 
+also be available.  A slightly modified version of the GL 
+interface library is available for the Ygl graphics library.  Ygl 
+provides a GL compatible interface for X-windows on Unix machines, 
+and can be used to provide X-Windows support for GLIB.  The Ygl 
+library is written by Fred Hucht and is available from: 
+ftp://ftp.thp.Uni-Duisburg.DE/source/X11.
+
+      There is also a GKS interface library available for the 
+Macintosh toolbox, to provide direct support for drawing on the 
+macintosh screen.
+
+      There are four additional GKS interfaces for graphics 
+libraries which are no longer part of GLIB: one interface for GDDM 
+graphics on IBM Mainframes, another for the IBM graPHIGS library, 
+a third for suncore graphics on Sun workstations, and a fourth for 
+Versatec plotters.  The source code for them is still available, 
+however, and they could be incorporated if they are useful.
+
+
+IV. Description of the Simple Line Plotting Subroutines
+
+      The line plotting subroutine DISPS plots an array f versus a 
+linear function in x, where x lies between xmin and xmax.  It has 
+the following interface:
+
+      subroutine disps (f,label,xmin,xmax,isc,ist,nx,chr,irc)
+      dimension f(nx)
+      real xmin, xmax
+      integer isc, ist, nx, irc
+      character*(*) label, chr
+
+      The first nx points of the array f are plotted using a solid 
+line, in blue if color is supported.  The size of the y-axis is 
+always a power of 2, and is determined by the parameter isc.  The 
+parameter ist is used to clip the output to positive or negative 
+values.  Together, isc and ist determine the scale and clipping as 
+follows:
+
+      if ist = 0, then ymax = 2**isc and ymin = -2**isc.
+      if ist > 0, then ymax = 2**isc and ymin = 0.
+      if ist < 0, then ymax = 0. and ymin = -2**isc.
+
+Generally, the value of isc passed in the argument list is used to 
+set the scale.  However, if abs(isc) > 116, then self-scaling is 
+used, and the program will determine the minimum value of isc 
+which will contain the plot of all the subarrays.  In other words, 
+the program finds the minimum value of isc such that 2**isc is 
+less than or equal to the absolute value of f.
+
+      The x-axis is always a linear function and the real 
+parameters xmin, xmax are used only to label the x-axis.  Two 
+character strings label and chr are displayed below the plot.  For 
+maximum legibility, they should be of length 44 or less.
+
+      The line plotting subroutine DISPD is very similar to DISPS, 
+except that it plots an array f versus an array g, instead of 
+plotting f versus a linear function.  Because it is plotting two 
+functions versus one another, it requires scaling and clipping 
+parameters for both the x-axis and the y-axis, instead of just the 
+y-axis as before.  It has the following interface:
+
+      subroutine dispd (f,g,label,zsc,zst,nx,chr,irc)
+      dimension f(nx), g(nx)
+      complex zsc, zst
+      integer nx, irc
+      character*(*) label, chr
+
+The scale and clipping parameters for x-axis are stored in the 
+real part of the complex variables zsc and zst, as follows:
+
+      iscx = int(real(zsc))
+      istx = int(real(zst))
+
+and the size of the  x-axis is determined as follows:
+
+      if istx = 0, then xmax = 2**iscx and xmin = -2**iscx.
+      if istx > 0, then xmax = 2**iscx and xmin = 0.
+      if istx < 0, then xmax = 0. and xmin = -2**iscx
+
+In a similar way, the scale and clipping parameters for the y-axis 
+are stored in the imaginary part of the complex variables zsc and 
+zst,
+
+      iscy = int(aimag(zsc))
+      isty = int(aimag(zst))
+
+and the size of the y-axis is determined analogously:
+
+      if isty = 0, then ymax = 2**iscy and ymin = -2**iscy.
+      if isty > 0, then ymax = 2**iscy and ymin = 0.
+      if isty < 0, then ymax = 0. and ymin = -2**iscy.
+
+An example of how the subroutines DISPS and DISPD can be used is 
+shown in the sample program called graphx.f in GLIB. 
+
+      Each call to a graphic subroutine such as DISPS or DISPD 
+produces one plot.  A parameter nplot controls how many different 
+plots can be placed on a single page.  If nplot = 1 (the default), 
+one plot per page is displayed in the largest size possible.  If 
+nplot > 1, then each plot produced by a call to a graphic 
+subroutine is reduced in size and placed in order left to right, 
+top to bottom on the page, until nplot calls have been made and 
+the page is full.  When the page is full, the behavior of the 
+program depends on whether the device chosen is interactive or 
+not.  For non-interactive devices (such as postscript), the 
+subroutine starts a new page and returns an error code irc = 0.
+
+      On interactive devices (such as Tektronix) the subroutine 
+will wait for input from the user.  This is commonly used to pass 
+information from the user to the program.  If a carriage return is 
+entered at this point, the program starts a new page and 
+continues.  Entering one of four special characters will affect 
+the behavior of the graphics.  For example, entering the character 
+'a' will put the program in animation mode if possible, which 
+means it will not pause at the end of each full page.  (On some 
+devices, this animation mode can be canceled by hitting any key.)  
+Entering 'u' will activate a mouse or other locater device if 
+available and ignore the keyboard for subsequent commands.  
+Entering 'p' will allow the user to change the nplot parameter.  
+Entering '?' will give a list of possible commands.
+
+      There are four other special characters which can be entered 
+that will set the return code but will not otherwise affect the 
+program.  These characters and corresponding codes are: q (for 
+quit,irc=1), s (for save,irc=2), m (for modify,irc=3), and r (for 
+reset,irc=6).  In addition, entering any non-negative number will 
+set the return code to that number plus 128.  It is up to the user 
+to test the value of irc in his or her program and take any 
+appropriate action (such as quitting).
+
+      Before making the plots, one can set the default parameter 
+nplot which controls the number of plots per page by calling:
+
+      call setnplt (nplot,irc)
+
+
+V. Description of the Complex Line Plotting Subroutines
+
+      The line plotting subroutine DISPR plots ngs subarrays of 
+the array f, on a common graph, each plot with nx points, versus a 
+linear function in x, where x lies between xmin and xmax.  It has 
+the following interface:
+
+      subroutine dispr(f,label,xmin,xmax,isc,ist,mks,nx,nxv,ngs,
+     &chr,chrs,irc)
+      dimension f(nxv,ngs)
+      real xmin, xmax
+      integer isc, ist, mks, nx, nxv, ngs, irc
+      character*(*) label, chr
+      character*(*) chrs(ngs)
+
+      If mks = 0, each subarray is plotted with a different line 
+style and color.  On black and white devices, the line styles are 
+cycled through in order of solid, dash, dot, and dash-dot.  On 
+color devices, each line style is displayed with a different color 
+before the next line style is used.  The colors, if available, are 
+used in the order of blue, red, yellow, cyan, magenta, green, and 
+foreground.  If mks > 0, then markers instead of line styles are 
+used, cycled in the order dot, plus, star, circle, and cross.  The 
+marker used first is determined by the value of mks, starting with 
+a dot when mks = 1.  If mks < 0, the the first subarray is plotted 
+as a solid line, and subsequent subarrays are plotted with 
+markers, starting with the marker whose value is abs(mks).
+
+      In terms of the parameters xmin, xmax, isc, ist, label, and 
+chr, the subroutine DISPR behaves just like DISPS, where isc 
+refers to the common y-axis. One new feature is that a short 
+descriptive word describing each subplot is displayed.  This 
+information is contained in chrs, an array of ngs character 
+strings (each of size 10 or less).  
+
+      The line plotting subroutine DISPC is very similar to DISPR, 
+except that instead of plotting the subarrays of f versus a linear 
+function, it plots each subarray of f versus a corresponding 
+subarray of g.  It has the following interface:
+
+      subroutine dispc(f,g,label,zsc,zst,mks,nx,nxv,ngs,chr,chrs,
+     &irc)
+      dimension f(nxv,ngs), g(nxv,ngs)
+      complex zsc, zst
+      integer mks, nx, nxv, ngs, irc
+      character*(*) label, chr
+      character*(*) chrs(ngs)
+
+where the meaning of the parameters is the same as described 
+earlier.  A more complete example of various ways the subroutines 
+DISPR and DISPC can be used is shown in the sample program called 
+graphx.f in GLIB.
+
+
+VI. Description of the Color Map and Contour Subroutines
+
+      The subroutine CARPET displays a 2D array f as a color 
+raster image, where each value of f is mapped to some color via a 
+table called a palette.  It has the following interface:
+
+      call carpet(f,label,isc,ist,nx,ny,nxv,chr,ntc,irc)
+      dimension f(nxv,ny)
+      character*(*) label, chr
+      integer isc, ist, nx, ny, nxv, ntc, irc
+
+The range of values of f which are mapped is always a power of 2 
+and is determined by the parameters isc and ist, which determine 
+the range and clipping as follows:
+
+      if ist = 0, then fmax = 2**isc and fmin = -2**isc.
+      if ist > 0, then fmax = 2**isc and fmin = 0.
+      if ist < 0, then fmax = 0. and fmin = -2**isc.
+
+Generally, the value of isc passed in the argument list is used to 
+set the range.  However, if abs(isc) > 116, then self-scaling is 
+used, and the program will determine the minimum value of isc 
+which will contain the values of f.  In other words, the program 
+finds the minimum value of isc such that 2**isc is less than or 
+equal to the absolute value of f.
+
+      A palette must be selected before calling CARPET by making 
+the following call:
+
+      call stpalit(idpal)
+
+where idpal can have one of three possible values: 1 for a 
+cold/hot palette, 2 for a color wheel, and 3 for a rainbow.  The 
+palettes have 256 colors defined and the user can select a subset 
+ntc of them (ntc should be a power of 2) to be used in the color 
+map.  (Having fewer colors makes the boundaries of the map crisper 
+and easier to see, but subtle variations can be missed.)  The 
+number of values nx in the x direction being mapped can be less 
+than the actual dimension nxv in that direction.  This allows one 
+to map subarrays of a larger array.
+
+      In other respects, the subroutine CARPET behaves like the 
+line drawing subroutines: two character strings (of length 44 or 
+less), called label and chr, are displayed below the plot, 
+multiple plots per page are possible, and if the device is 
+interactive, the program will wait for input when the page is full 
+and return the code irc.
+
+      The subroutine CONTUR is similar to CARPET, except that 
+instead of displaying the data as a color map, it displays it as a 
+contour plot.  If color is available, the contours are colored in 
+order from lowest to highest value as follows: blue, green, cyan, 
+foreground, yellow, magenta, red.  If colors are not available, 
+then two different line styles are used.  The subroutine has the 
+following interface:
+
+      call contur(f,lf,label,isc,ist,nx,ny,nxv,chr,nc,irc)
+      dimension f(nxv,ny)
+      integer lf(nxv,ny)
+      character*(*) label, chr
+      integer isc, ist, nx, ny, nxv, nc, irc
+
+An integer scratch array called lf, of the same size as f, is 
+needed by this subroutine.  The number of contours to be used is 
+passed in the parameter nc.
+
+      A more complete example of various ways the subroutines 
+CARPET and CONTUR can be used is shown in the sample program 
+graphxy.f in GLIB.
+
+
+VII. Additional features in GLIB
+
+      If the user desires to run his code again with the same 
+graphics device selected, it is not necessary to recompile the 
+program with the graf script.  The executable created by the 
+script the first time can be used again.  For example, if the user 
+types
+
+graf graph_test.f
+
+the script creates an executable called graph_test.out, which can 
+be executed directly the next time.
+
+      The script file graf can include a user library during the 
+linking process, for example, a library called mystuff.f.  The 
+user should first compile the library, and set the environment 
+variable MYLIB to the name of the resulting .o file, e.g., with 
+the csh command:
+
+setenv MYLIB mystuff.o
+
+Alternatively, you can modify the script graf itself and set the 
+environment variable MYLIB there.
+
+      The NERSC raster and Tektronix files can be used as a kind 
+of metafile for storing all the graphics images from some 
+simulation.  Some or all of these images can then be examined, 
+printed or converted to other formats with the programs pmovie 
+(for the raster images) and gramgk (for the Tektronix images).
+
+      To examine NERSC format raster files (stored in the default 
+location mgraph) using the program pmovie, execute the command:
+
+graf pmovie
+
+If the raster files have been renamed (e.g, mgraph.vga), then 
+append the name to the command line as follows:
+
+graf pmovie mgraph.vga
+
+One can type ? to obtain instructions at various points in the 
+program.
+
+      To examine Tektronix files (stored in the default location 
+agraph) using the program gramgk, execute the command:
+
+graf gramgk
+
+If the files have been renamed (e.g., agraph.mfl), then append the 
+name to the command line as follows:
+
+graf gramgk agraph.mfl
+
+      Because GLIB is written using GKS calls, users can write new 
+GKS-based graphics routines or customize the original ones to suit 
+their needs.
+
+
+VIII. Installation
+
+      To install the library on a Unix machine, copy all the files 
+to the appropriate directory.  Create a script graf by first 
+copying the file graf2d.sh:
+
+cp graf2d.sh graf
+
+then edit the script graf by setting the following environment 
+variables declared there:
+
+SGLIB, the full path of the directory where GLIB will reside
+FCOMPLN, the name of the compiler, usually f77
+FCFLAGS, compiler options to be used, -O is recommended
+G_CONS should be set only if the Console device is supported
+       currently supported types: GL, MAC, YGL
+G_XWIN should be set only if X-Windows is supported
+       currently supported types: IBM, DEC, CRAY, GP, YGL
+NCARG_ROOT should be set only if NcarGraphics is installed.
+
+Change the permissions for the script files by typing the 
+following command:
+
+chmod u+x graf *.sh
+
+Then execute the shell procedure graf with the test program 
+graphxy.f as follows:
+
+graf graphxy.f
+
+In response to the question:
+
+Where do you want your graphical output to go?
+Enter 1, 2, 3, 4, 5, 6, 7, or 8, or q=quit:
+
+Enter 0 to install GLIB.  After the installation is complete, the 
+question will appear again:
+
+Where do you want your graphical output to go?
+Enter 1, 2, 3, 4, 5, 6, 7, or 8, or q=quit:
+
+You can now test any device by typing a number from 1-8, other 
+else type q to quit.  Make a copy of graf for each user so that 
+they can customize it.
+
+      For the four devices which are always present (Textronix, 
+postscript, compressed raster, and no graphics) the library can be 
+compiled in double precision, by changing the compiler flag 
+FCFLAGS.  This will not work correctly with the optional devices 
+(Console, X-Windows, NcarGraphics) because they interface with 
+other libraries which are in single precision.
+
+      The file libloc1.f contains two short subroutines which vary 
+with the local machine being used and have to be modified when 
+moving from one platform to another.  One subroutine establishes 
+certain constants, the other contains a timer subroutine.  
+Versions of these are available for about a dozen machines 
+currently.
+
+update: september 26, 1997
