@@ -1,0 +1,1512 @@
+      PROGRAM GRAF
+      COMMON CCC(12),SDHI,CHI,HI,PSI
+      DIMENSION XX(300),YY(300),ZZ(300)
+      character*80 fname1,fname2
+
+      common/zwingpar/ th,q,alen,eps,xl,ac
+c
+
+
+c   this program calculates a series of field lines in the Zwingmann
+c   model.   The field lines are outputted as x, y, z (points along the
+c   field line.   
+
+	pi=4.*atan(1.)
+   
+      APS=0.
+      PSI=APS*pi/180.
+ 
+
+      IOPT=2      
+
+
+      open(7,file='zw_parameters.in',status='old',err=716)
+      read(7,*) th,q,alen1,eps,xl,ac
+      alen = alen1/q
+      close(7)
+      write(6,*) th,q,alen,eps,xl,ac
+      goto 720
+716   write(6,*) 'field input file missing'
+       stop
+
+720    continue
+
+
+
+c       th=4.0
+c     q=0.5
+c     alen=100./q
+c     eps=0.02
+c     xl=45.
+c     ac=75.
+
+
+
+	am1=4.*pi*1.e-7
+	re=6.3712e+6
+
+
+
+
+      icount=0
+
+      DO 1 IIX=1,23
+        XGSM=5.+5.*FLOAT(IIX)
+        YGSM=0.
+        ZGSM=0.
+        icount = icount+1
+        write(fname1,90) icount
+        open(10,file=fname1,status='unknown')
+        CALL TRACE(XGSM,YGSM,ZGSM,-1.,119.,1.,0,300,
+     *              IOPT,XF,YF,ZF,XX,YY,ZZ,M)
+        WRITE (10,20) (XX(L),YY(L),ZZ(L),L=1,M)
+
+        icount = icount+1
+        write(fname2,90) icount
+        open(11,file=fname2,status='unknown')
+c       CALL TRACE(XGSM,YGSM,ZGSM,1.,119.,1.,0,300,
+c    *              IOPT,XF,YF,ZF,XX,YY,ZZ,M)
+        WRITE (11,20) (XX(L),YY(L),-ZZ(L),L=1,M)
+	close(10)
+	close(11)
+1     CONTINUE
+
+90    format('flines/fline.',i3.3,'.out')
+
+      DO 3 IIX=1,21
+        XGSM=119.             
+        YGSM=0.
+        ZGSM=-10.+1.0*(float(iix-1))
+        icount = icount+1
+        write(fname1,90) icount
+        open(10,file=fname1,status='unknown')
+        CALL TRACE(XGSM,YGSM,ZGSM,-1.,120.,1.,0,300,
+     *              IOPT,XF,YF,ZF,XX,YY,ZZ,M)
+        WRITE (10,20) (XX(L),YY(L),ZZ(L),L=1,M)
+
+        icount = icount+1
+        write(fname2,90) icount
+        open(11,file=fname2,status='unknown')
+c       CALL TRACE(XGSM,YGSM,ZGSM,1.,120.,1.,0,300,
+c    *              IOPT,XF,YF,ZF,XX,YY,ZZ,M)
+        WRITE (11,20) (XX(L),YY(L),-ZZ(L),L=1,M)
+	close(10)
+	close(11)
+3     CONTINUE
+
+
+20    format(1x,3f12.5)
+
+ 
+
+      STOP
+      END
+
+      subroutine zwing(psi,xa,ya,za,bx,by,bz)
+
+      common/zwingpar/ th,q,alen,eps,xl,ac
+
+c     write (6,*) 'inside zwing ',th,q,alen,eps,xl,ac
+
+c
+c
+c
+c    first we calculate the original zwingmann field
+c
+c
+	am1=4.*pi*1.e-7
+	re=6.3712e+6
+	pi=4.*atan(1.)
+
+
+	x=xa
+	z=za
+c	th=4.0
+c      q=0.5
+c      alen=100./q
+c      eps=0.02
+c      xl=45.
+c      ac=75.
+
+c     f1=((x/xl)**(-q)/th)
+c     f2=-q*f1/x
+      f1=(1./th)*((x/xl)**(-q))*exp(x/alen)
+      f2=(1./th)*exp(x/alen)*((-q/xl)*(x/xl)**(-q-1.)+
+     >      (1./alen)*(x/xl)**(-q))
+      bza=f2*(-z*tanh(f1*z)+1./f1)
+      bza=-ac*bza
+      bxa=f1*tanh(f1*z)
+      bxa=-ac*bxa
+      by=0.
+
+      bx=bxa	
+      bz=bza	
+
+
+      return
+      end
+
+
+
+
+
+C-------------------------------------------------------------
+
+      SUBROUTINE BSPCAR(TETA,PHI,BR,BTET,BPHI,BX,BY,BZ)
+C   CALCULATES CARTESIAN FIELD COMPONENTS FROM SPHERICAL ONES
+C-----INPUT:   TETA,PHI - SPHERICAL ANGLES OF THE POINT IN RADIANS
+C              BR,BTET,BPHI -  SPHERICAL COMPONENTS OF THE FIELD
+C-----OUTPUT:  BX,BY,BZ - CARTESIAN COMPONENTS OF THE FIELD
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      S=SIN(TETA)
+      C=COS(TETA)
+      SF=SIN(PHI)
+      CF=COS(PHI)
+      BE=BR*S+BTET*C
+      BX=BE*CF-BPHI*SF
+      BY=BE*SF+BPHI*CF
+      BZ=BR*C-BTET*S
+      RETURN
+      END
+
+C--------------------- Cut here for dip.f -----------------------
+       SUBROUTINE DIP(PS,X,Y,Z,BX,BY,BZ)
+C
+C  CALCULATES GSM COMPONENTS OF GEODIPOLE FIELD WITH THE DIPOLE MOMENT
+C  CORRESPONDING TO EPOCH=1980.
+C------------INPUT PARAMETERS:
+C   PS - GEODIPOLE TILT ANGLE IN RADIANS, X,Y,Z - GSM COORDINATES IN RE
+C------------OUTPUT PARAMETERS:
+C   BX,BY,BZ - FIELD COMPONENTS IN GSM SYSTEM, IN NANOTESLA.
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      DATA M,PSI/0,0./
+      IF(M.EQ.1.AND.ABS(PS-PSI).LT.1.E-5) GOTO 1
+      SPS=SIN(PS)
+      CPS=COS(PS)
+      PSI=PS
+      M=1
+  1   P=X**2
+      U=Z**2
+      V=3.*Z*X
+      T=Y**2
+      Q=30574./SQRT(P+T+U)**5
+      BX=Q*((T+U-2.*P)*SPS-V*CPS)
+      BY=-3.*Y*Q*(X*SPS+Z*CPS)
+      BZ=Q*((P+T-2.*U)*CPS-V*SPS)
+      RETURN
+      END
+
+C--------------------- Cut here for ex89ae.f -----------------------
+ 	      	SUBROUTINE EXTAE(IOPT,PS,X,Y,Z,BX,BY,BZ)
+C
+C   COMPUTES GSM COMPONENTS OF THE MAGNETIC FIELD PRODUCED BY EXTRA-
+C   TERRESTRIAL CURRENT SYSTEMS IN THE GEOMAGNETOSPHERE. THE MODEL IS
+C   VALID UP TO GEOCENTRIC DISTANCES OF 70 RE AND IS BASED ON THE MER-
+C   GED IMP-A,C,D,E,F,G,H,I,J (1966-1974) AND HEOS-1 AND -2 (1969-1974)
+C   SPACECRAFT DATA SET.  REFERENCE: N.A. TSYGANENKO, A MAGNETOSPHERIC
+C   MAGNETIC FIELD MODEL WITH A WARPED TAIL CURRENT SHEET: PLANET.SPACE
+C   SCI., V.37, PP.5-20, 1989.
+C
+C----INPUT PARAMETERS: IOPT - SPECIFIES THE GROUND DISTURBANCE LEVEL:
+C
+C   IOPT= 1         2         3          4           5           6
+C                  CORRESPOND TO:
+C    AE=0-50     50-100    100-150    150-250     250-400      >=400
+C
+C    PS - GEODIPOLE TILT ANGLE IN RADIANS
+C    X, Y, Z  - GSM COORDINATES OF THE POINT IN EARTH RADII
+C
+C----OUTPUT PARAMETERS: BX,BY,BZ - GSM COMPONENTS OF THE MODEL MAGNETIC
+C                        FIELD IN NANOTESLAS
+C
+C              AUTHOR:     NIKOLAI A. TSYGANENKO
+C                          INSTITUTE OF PHYSICS, LENINGRAD UNIVERSITY
+C			   STARY PETERGOF 198904
+C			   LENINGRAD
+C			   USSR
+C
+      DIMENSION GA1(28),GA2(28),GA3(28),GA4(28),GA5(28),GA6(28),PA(28)
+      DATA GA1/-77.38,-10921.,-2.89,193.9,-10954.,2.048,28.83,-0.0367,
+     *   -0.0625,0.00104,-1.246,0.00166,0.000792,20.81,-0.03608,
+     *   4*0.,25.82,7.656,2.106,-0.30,8.753,2.733,13.17,27.09,5.184/
+      DATA GA2/-59.2,-13647.,11.6,237.2,-14465.,2.326,36.54,-0.07084,
+     * -0.1182,0.000146,-1.626,0.002466,0.001355,23.49,-0.04602,
+     * 4*0.,23.15,7.6,1.6,1.457,8.373,3.883,14.18,28.79,5.97/
+      DATA GA3/-65.91,-15267.,64.48,230.6,-14870.,2.712,43.28,-0.09687,
+     * -0.1671,0.009814,-1.835,0.0026,0.0017,22.73,-0.05049,
+     * 4*0.,20.76,6.314,1.42,4.141,9.436,6.266,15.07,30.35,6.852/
+      DATA GA4/-57.97,-16106.,86.28,199.7,-16796.,3.033,46.80,-0.1057,
+     * -0.1992,0.01509,-1.534,0.001783,-0.000542,22.29,-0.04664,
+     * 4*0.,19.79,5.788,1.177,5.007,9.60,7.32,15.78,33.53,7.401/
+      DATA GA5/-118.1,-16473.,136.3,158.7,-21134.,3.135,49.78,-0.1088,
+     * -0.2245,0.01759,-1.874,0.003243,-0.000268,21.97,-0.04913,
+     * 4*0.,18.48,6.25,0.8643,5.821,9.552,6.051,16.14,31.27,9.062/
+      DATA GA6/-223.7,-15054.,219.1,83.84,-31140.,3.777,51.08,-0.1261,
+     * -0.2393,0.02507,-1.426,0.001678,0.002039,19.10,-0.05344,
+     * 4*0.,16.73,6.532,0.382,5.807,8.099,6.726,16.21,25.63,9.431/
+      DATA DEL,GAM,DYC,XD,XLD2,XLW2,A02,RT,SXC,XLWC2,DADD
+     * /0.01,4.,20.,0.,40.,170.,25.,30.,4.,50.,1./
+      DATA IP,PSI/100,0./
+	IF (IOPT.EQ.IP) GOTO 2
+C
+C   INITIAL CALCULATION OF CONSTANTS FROM A GIVEN SET OF MODEL PARAMETERS
+C   SPECIFIED BY THE OPTION NUMBER (IOPT)
+C
+	IP=IOPT
+	DO 1 I=1,28
+	IF (IP.EQ.1) PA(I)=GA1(I)
+        IF (IP.EQ.2) PA(I)=GA2(I)
+	IF (IP.EQ.3) PA(I)=GA3(I)
+	IF (IP.EQ.4) PA(I)=GA4(I)
+	IF (IP.EQ.5) PA(I)=GA5(I)
+	IF (IP.EQ.6) PA(I)=GA6(I)
+   1    CONTINUE
+	DELX=PA(20)
+	ADR=PA(21)
+	D0=PA(22)
+	DD=PA(23)
+	RC=PA(24)
+	G=PA(25)
+	A=PA(26)
+	DY=PA(27)
+	SX=PA(28)
+	HA=0.5*A
+	HA02=0.5*A02
+	RDYC2=1./DYC**2
+        HLWC2M=-0.5*XLWC2
+	DRDYCM=-2.*RDYC2
+	HLDXM=-0.5*XLD2
+	DDEL=2.*DEL
+	RDY2=1./DY**2
+	DRDY2M=-2.*RDY2
+	HXLW2M=-0.5*XLW2
+	DADD05=DADD*0.5
+	DADD18=-18.*DADD
+C
+C   COEFFICIENTS PA(16)-PA(19) ARE FOUND FROM PA(6)-PA(13)
+C   SO THAT THE MAGNETIC FIELD BE DIVERGENCELESS
+C
+	PA(16)=-0.5*(PA(6)/DELX+PA(10))
+	PA(17)=-(PA(7)/DELX+PA(11))
+	PA(18)=-(PA(8)/DELX+3.*PA(12))
+	PA(19)=-(PA(9)/DELX+PA(13))/3.
+C
+	GOTO 3
+   2    IF(ABS(PS-PSI).LT.1.E-6) GOTO 4
+   3    PSI=PS
+	SPS=SIN(PS)
+	CPS=COS(PS)
+	HTPS=SPS/(2.*CPS)
+	GSPM=-G*SPS
+C
+C   COMPUTATION BEGINS HERE IF IOPT AND PS ARE THE SAME
+C
+   4    XSM=X*CPS-Z*SPS
+	ZSM=Z*CPS+X*SPS
+	X2SM=XSM**2
+  	Y2=Y*Y
+	RO2=X2SM+Y2
+	XXD=XSM-XD
+	XXD2L2=1./(XXD**2+XLD2)
+	RSQXDL=SQRT(XXD2L2)
+	H=0.5*(1.+XXD*RSQXDL)
+	HSX=-HLDXM*XXD2L2*RSQXDL
+	XSIXT=XSM+16.
+	XSIXTD=1./(XSIXT**2+36.)
+	SXSIX=SQRT(XSIXTD)
+	DDOP=DADD05*(1.-XSIXT*SXSIX)
+	DDOPDX=DADD18*XSIXTD*SXSIX
+	D=D0+DEL*Y2+GAM*H+DDOP
+	DDX=GAM*HSX+DDOPDX
+	DDY=DDEL*Y
+	XRC=XSM+RC
+	SXRC16=SQRT(XRC**2+16.)
+	Y4=Y2*Y2
+	Y410=1./(Y4+1.E4)
+	HY=Y2*Y410*Y
+	HYS=HY*Y410*4.E4
+	HY=HY*Y
+	ZS=HTPS*(XRC-SXRC16)+GSPM*HY
+	DZSX=HTPS*(1.-XRC/SXRC16)
+	DZSY=GSPM*HYS
+C
+C  ZS=ZS(XSM,YSM) DEFINES THE SHAPE OF THE WARPED CURRENT SHEET
+C
+	XSX=XSM-SX
+	RQ=1./(XSX**2+XLW2)
+	SRQ=SQRT(RQ)
+	FY=1./(1.+Y2*RDY2)
+	W=0.5*(1.-XSX*SRQ)*FY
+	DWX=HXLW2M*RQ*SRQ*FY
+	DWY=DRDY2M*W*Y*FY
+	ZR=ZSM-ZS
+	T=SQRT(ZR**2+D**2)
+	AT=A+T
+	S1=SQRT(AT**2+RO2)
+	F5=1./S1
+	F7=1./(S1+AT)
+	F1=F5*F7
+	F3=F5**3
+	F9=AT*F3
+	XWYW=XSM*DWX+Y*DWY
+	FR=ZR*(XSM*DZSX+Y*DZSY)
+	FS=FR-D*(XSM*DDX+Y*DDY)
+	WT=W/T
+	WTFS=WT*FS
+	BRZR1=WT*F1
+	BRZR2=WT*F3
+	BXT=(PA(1)*BRZR1+PA(2)*BRZR2)*ZR
+	BYT=BXT*Y
+	BXT=BXT*XSM
+	BZT=PA(1)*(W*F5+XWYW*F7+WTFS*F1)+PA(2)*(W*F9+XWYW*F1+WTFS*F3)
+C
+C   CONTRIBUTION FROM CENTRAL TAIL CURRENT SHEET (BXT,BYT,BZT)
+C   IS FOUND.  NOW LET US PROCEED TO THE RING CURRENT FIELD:
+C
+	RX2A2=1./(X2SM+A02)
+	SRX2A2=SQRT(RX2A2)
+	FDR=0.5*(1.+XSM*SRX2A2)
+	DFDRX=HA02*RX2A2*SRX2A2
+	DDR=D0+DD*FDR+DDOP
+	TDR=SQRT(ZR**2+DDR**2)
+	ADRT=ADR+TDR
+	ADRT2=ADRT**2
+	ADT2R2=1./(ADRT2+RO2)
+	FK1=ADT2R2**2*SQRT(ADT2R2)
+	FK2=3.*ADRT*FK1/TDR
+	BXDR=PA(5)*ZR*FK2
+	BYT=BYT+BXDR*Y
+	BXT=BXT+BXDR*XSM
+	BZT=BZT+PA(5)*((2.*ADRT2-RO2)*FK1+FK2*(FR-DDR*(DD*DFDRX
+     *  +DDOPDX)*XSM))
+C
+C   NOW CALCULATE CHAPMAN-FERRARO FIELD
+C   PLUS AVERAGE FIELD-ALIGNED CURRENT CONTRIBUTION
+C
+	EX=EXP(X/DELX)
+	Z2=Z*Z
+	YZ=Y*Z
+	BXCF=EX*(CPS*PA(6)*Z+SPS*(PA(7)+PA(8)*Y2+PA(9)*Z2))
+	BYCF=EX*(CPS*PA(10)*YZ+SPS*Y*(PA(11)+PA(12)*Y2+PA(13)*Z2))
+        BZCF=EX*(CPS*(PA(14)+PA(15)*Y2+PA(16)*Z2)+SPS*Z*(PA(17)+
+     *    PA(18)*Y2+PA(19)*Z2))
+C
+C   MAGNETOTAIL RETURN CURRENT FIELD COMPONENTS (BXC,BYC,BZC):
+C
+	FCY=1./(1.+Y2*RDYC2)
+	XSXC=X-SXC
+	RQC2=1./(XSXC**2+XLWC2)
+	SRQC2=SQRT(RQC2)
+	WC=0.5*(1.-XSXC*SRQC2)*FCY
+	DWCX=HLWC2M*RQC2*SRQC2*FCY
+	DWCY=DRDYCM*WC*Y*FCY
+	XWCYWC=X*DWCX+Y*DWCY
+	RO2=Y2+X**2
+	ZP=Z+RT
+	ZM=Z-RT
+	SP=SQRT(ZP**2+RO2)
+	SM=SQRT(ZM**2+RO2)
+	WCSP=WC/SP
+	WCSM=WC/SM
+	RSPRT=1./(SP+ZP)
+	RSMRT=1./(SM-ZM)
+	FXP=WCSP*RSPRT
+	FXM=-WCSM*RSMRT
+	FYP=FXP*Y
+	FYM=FXM*Y
+	FXP=FXP*X
+	FXM=FXM*X
+	FZP=WCSP+XWCYWC*RSPRT
+	FZM=WCSM+XWCYWC*RSMRT
+	AA4SPS=PA(4)*SPS
+	BXC=PA(3)*(FXP+FXM)+(FXP-FXM)*AA4SPS
+	BYC=PA(3)*(FYP+FYM)+(FYP-FYM)*AA4SPS
+	BZC=PA(3)*(FZP+FZM)+(FZP-FZM)*AA4SPS
+C
+C   AT LAST, SUM UP THE FIELDS.  THE CENTRAL CURRENT SHEET
+C   FIELD COMPONENTS ARE TRANSFORMED INTO GSM COORDINATES
+C
+	BX=BXC+BXT*CPS+BZT*SPS+BXCF
+	BY=BYC+BYT+BYCF
+	BZ=BZC+BZT*CPS-BXT*SPS+BZCF
+	RETURN
+	END
+
+
+C--------------------- Cut here for ex89kp.f -----------------------
+
+ 	      	SUBROUTINE EX89KP(IOPT,PS,X,Y,Z,BX,BY,BZ)
+C   COMPUTES GSM COMPONENTS OF THE MAGNETIC FIELD PRODUCED BY EXTRA-
+C   TERRESTRIAL CURRENT SYSTEMS IN THE GEOMAGNETOSPHERE. THE MODEL IS
+C   VALID UP TO GEOCENTRIC DISTANCES OF 70 RE AND IS BASED ON THE MER-
+C   GED IMP-A,C,D,E,F,G,H,I,J (1966-1974) AND HEOS-1 AND -2 (1969-1974)
+C   SPACECRAFT DATA SET.  REFERENCE: N.A. TSYGANENKO, A MAGNETOSPHERIC
+C   MAGNETIC FIELD MODEL WITH A WARPED TAIL CURRENT SHEET: PLANET.SPACE
+C   SCI., V.37, PP.5-20, 1989.
+C
+C----INPUT PARAMETERS: IOPT - SPECIFIES THE GROUND DISTURBANCE LEVEL:
+C
+C   IOPT= 1         2         3          4           5           6
+C                  CORRESPOND TO:
+C    KP= 0,0+    1-,1,1+    2-,2,2+    3-,3,3+     4-,4,4+      >=5-
+C
+C    PS - GEODIPOLE TILT ANGLE IN RADIANS
+C    X, Y, Z  - GSM COORDINATES OF THE POINT IN EARTH RADII
+C
+C----OUTPUT PARAMETERS: BX,BY,BZ - GSM COMPONENTS OF THE MODEL MAGNETIC
+C                        FIELD IN NANOTESLAS
+C
+C
+C              AUTHOR:     NIKOLAI A. TSYGANENKO
+C                          INSTITUTE OF PHYSICS, LENINGRAD UNIVERSITY
+C			   STARY PETERGOF 198904
+C			   LENINGRAD
+C			   USSR
+C
+      DIMENSION GA1(28),GA2(28),GA3(28),GA4(28),GA5(28),GA6(28),PA(28)
+      DATA GA1/-98.72,-10014.,15.03,76.62,-10237.,1.813,31.1,-0.07464,
+     *   -0.07764,0.003303,-1.129,0.001663,0.000988,18.21,-0.03018,
+     *   4*0.,24.74,8.16,2.08,-0.88,9.08,3.84,13.55,26.94,5.75/
+      DATA GA2/-35.65,-12800.,14.37,124.5,-13543.,2.316,35.64,-0.0741,
+     * -0.1081,0.003924,-1.451,0.00202,0.00111,21.37,-0.04567,
+     * 4*0.,22.33,8.12,1.664,0.932,9.24,2.43,13.81,28.83,6.05/
+      DATA GA3/-77.45,-14588.,64.85,123.9,-16229.,2.641,42.46,-0.07611,
+     * -0.1579,0.004078,-1.391,0.00153,0.000727,21.86,-0.04199,
+     * 4*0.,20.9,6.28,1.54,4.18,9.61,6.59,15.08,30.57,7.43/
+      DATA GA4/-70.12,-16125.,90.71,38.08,-19630.,3.181,47.5,-0.1327,
+     * -0.1864,0.01382,-1.488,0.002962,0.000897,22.74,-0.04095,
+     * 4*0.,18.64,6.27,0.935,5.39,8.57,5.94,15.63,31.47,8.10/
+      DATA GA5/-162.5,-15806.,160.6,5.888,-27534.,3.607,51.1,-0.1006,
+     * -0.1927,0.03353,-1.392,0.001594,0.002439,22.41,-0.04925,
+     * 4*0.,18.31,6.2,0.768,5.07,10.06,6.67,16.1,30.04,8.26/
+      DATA GA6/-128.4,-16184.,149.1,215.5,-36435.,4.09,49.09,-0.0231,
+     * -0.1359,0.01989,-2.298,0.004911,0.003421,21.79,-0.05447,
+     * 4*0.,19.48,5.83,0.332,6.47,10.47,9.08,15.85,25.27,7.98/
+      DATA DEL,GAM,DYC,XD,XLD2,XLW2,A02,RT,SXC,XLWC2,DADD
+     * /0.01,4.,20.,0.,40.,170.,25.,30.,4.,50.,1./
+      DATA IP,PSI/100,0./
+	IF (IOPT.EQ.IP) GOTO 2
+C
+C   INITIAL CALCULATION OF CONSTANTS FROM A GIVEN SET OF MODEL PARAMETERS
+C   SPECIFIED BY THE OPTION NUMBER (IOPT)
+C
+C
+        
+	IP=IOPT
+	DO 1 I=1,28
+	IF (IP.EQ.1) PA(I)=GA1(I)
+        IF (IP.EQ.2) PA(I)=GA2(I)
+	IF (IP.EQ.3) PA(I)=GA3(I)
+	IF (IP.EQ.4) PA(I)=GA4(I)
+	IF (IP.EQ.5) PA(I)=GA5(I)
+	IF (IP.EQ.6) PA(I)=GA6(I)
+   1    CONTINUE
+	DELX=PA(20)
+	ADR=PA(21)
+	D0=PA(22)
+	DD=PA(23)
+	RC=PA(24)
+	G=PA(25)
+	A=PA(26)
+	DY=PA(27)
+	SX=PA(28)
+	HA=0.5*A
+	HA02=0.5*A02
+	RDYC2=1./DYC**2
+        HLWC2M=-0.5*XLWC2
+	DRDYCM=-2.*RDYC2
+	HLDXM=-0.5*XLD2
+	DDEL=2.*DEL
+	RDY2=1./DY**2
+	DRDY2M=-2.*RDY2
+	HXLW2M=-0.5*XLW2
+	DADD05=DADD*0.5
+	DADD18=-18.*DADD
+C
+C   COEFFICIENTS PA(16)-PA(19) ARE FOUND FROM PA(6)-PA(13)
+C   SO THAT THE MAGNETIC FIELD BE DIVERGENCELESS
+C
+	PA(16)=-0.5*(PA(6)/DELX+PA(10))
+	PA(17)=-(PA(7)/DELX+PA(11))
+	PA(18)=-(PA(8)/DELX+3.*PA(12))
+	PA(19)=-(PA(9)/DELX+PA(13))/3.
+C
+	GOTO 3
+   2    IF(ABS(PS-PSI).LT.1.E-6) GOTO 4
+   3    PSI=PS
+	SPS=SIN(PS)
+	CPS=COS(PS)
+	HTPS=SPS/(2.*CPS)
+	GSPM=-G*SPS
+
+        
+C
+C   COMPUTATION BEGINS HERE IF IOPT AND PS ARE THE SAME
+C
+   4    XSM=X*CPS-Z*SPS
+	ZSM=Z*CPS+X*SPS
+	X2SM=XSM**2
+  	Y2=Y*Y
+	RO2=X2SM+Y2
+	XXD=XSM-XD
+	XXD2L2=1./(XXD**2+XLD2)
+	RSQXDL=SQRT(XXD2L2)
+	H=0.5*(1.+XXD*RSQXDL)
+	HSX=-HLDXM*XXD2L2*RSQXDL
+	XSIXT=XSM+16.
+	XSIXTD=1./(XSIXT**2+36.)
+	SXSIX=SQRT(XSIXTD)
+	DDOP=DADD05*(1.-XSIXT*SXSIX)
+	DDOPDX=DADD18*XSIXTD*SXSIX
+	D=D0+DEL*Y2+GAM*H+DDOP
+	DDX=GAM*HSX+DDOPDX
+	DDY=DDEL*Y
+	XRC=XSM+RC
+	SXRC16=SQRT(XRC**2+16.)
+	Y4=Y2*Y2
+	Y410=1./(Y4+1.E4)
+	HY=Y2*Y410*Y
+	HYS=HY*Y410*4.E4
+	HY=HY*Y
+	ZS=HTPS*(XRC-SXRC16)+GSPM*HY
+	DZSX=HTPS*(1.-XRC/SXRC16)
+	DZSY=GSPM*HYS
+C
+C  ZS=ZS(XSM,YSM) DEFINES THE SHAPE OF THE WARPED CURRENT SHEET
+C
+	XSX=XSM-SX
+	RQ=1./(XSX**2+XLW2)
+	SRQ=SQRT(RQ)
+	FY=1./(1.+Y2*RDY2)
+	W=0.5*(1.-XSX*SRQ)*FY
+	DWX=HXLW2M*RQ*SRQ*FY
+	DWY=DRDY2M*W*Y*FY
+	ZR=ZSM-ZS
+	T=SQRT(ZR**2+D**2)
+	AT=A+T
+	S1=SQRT(AT**2+RO2)
+	F5=1./S1
+	F7=1./(S1+AT)
+	F1=F5*F7
+	F3=F5**3
+	F9=AT*F3
+	XWYW=XSM*DWX+Y*DWY
+	FR=ZR*(XSM*DZSX+Y*DZSY)
+	FS=FR-D*(XSM*DDX+Y*DDY)
+	WT=W/T
+	WTFS=WT*FS
+	BRZR1=WT*F1
+	BRZR2=WT*F3
+	BXT=(PA(1)*BRZR1+PA(2)*BRZR2)*ZR
+	BYT=BXT*Y
+	BXT=BXT*XSM
+	BZT=PA(1)*(W*F5+XWYW*F7+WTFS*F1)+PA(2)*(W*F9+XWYW*F1+WTFS*F3)
+C
+C   CONTRIBUTION FROM CENTRAL TAIL CURRENT SHEET (BXT,BYT,BZT)
+C   IS FOUND.  NOW LET US PROCEED TO THE RING CURRENT FIELD:
+C
+	RX2A2=1./(X2SM+A02)
+	SRX2A2=SQRT(RX2A2)
+	FDR=0.5*(1.+XSM*SRX2A2)
+	DFDRX=HA02*RX2A2*SRX2A2
+	DDR=D0+DD*FDR+DDOP
+	TDR=SQRT(ZR**2+DDR**2)
+	ADRT=ADR+TDR
+	ADRT2=ADRT**2
+	ADT2R2=1./(ADRT2+RO2)
+	FK1=ADT2R2**2*SQRT(ADT2R2)
+	FK2=3.*ADRT*FK1/TDR
+	BXDR=PA(5)*ZR*FK2
+	BYT=BYT+BXDR*Y
+	BXT=BXT+BXDR*XSM
+	BZT=BZT+PA(5)*((2.*ADRT2-RO2)*FK1+FK2*(FR-DDR*(DD*DFDRX
+     *  +DDOPDX)*XSM))
+C
+C   NOW CALCULATE CHAPMAN-FERRARO FIELD
+C   PLUS AVERAGE FIELD-ALIGNED CURRENT CONTRIBUTION
+C
+	EX=EXP(X/DELX)
+	Z2=Z*Z
+	YZ=Y*Z
+	BXCF=EX*(CPS*PA(6)*Z+SPS*(PA(7)+PA(8)*Y2+PA(9)*Z2))
+	BYCF=EX*(CPS*PA(10)*YZ+SPS*Y*(PA(11)+PA(12)*Y2+PA(13)*Z2))
+        BZCF=EX*(CPS*(PA(14)+PA(15)*Y2+PA(16)*Z2)+SPS*Z*(PA(17)+
+     *    PA(18)*Y2+PA(19)*Z2))
+C
+C   MAGNETOTAIL RETURN CURRENT FIELD COMPONENTS (BXC,BYC,BZC):
+C
+	FCY=1./(1.+Y2*RDYC2)
+	XSXC=X-SXC
+	RQC2=1./(XSXC**2+XLWC2)
+	SRQC2=SQRT(RQC2)
+	WC=0.5*(1.-XSXC*SRQC2)*FCY
+	DWCX=HLWC2M*RQC2*SRQC2*FCY
+	DWCY=DRDYCM*WC*Y*FCY
+	XWCYWC=X*DWCX+Y*DWCY
+	RO2=Y2+X**2
+	ZP=Z+RT
+	ZM=Z-RT
+	SP=SQRT(ZP**2+RO2)
+	SM=SQRT(ZM**2+RO2)
+	WCSP=WC/SP
+	WCSM=WC/SM
+	RSPRT=1./(SP+ZP)
+	RSMRT=1./(SM-ZM)
+	FXP=WCSP*RSPRT
+	FXM=-WCSM*RSMRT
+	FYP=FXP*Y
+	FYM=FXM*Y
+	FXP=FXP*X
+	FXM=FXM*X
+	FZP=WCSP+XWCYWC*RSPRT
+	FZM=WCSM+XWCYWC*RSMRT
+	AA4SPS=PA(4)*SPS
+	BXC=PA(3)*(FXP+FXM)+(FXP-FXM)*AA4SPS
+	BYC=PA(3)*(FYP+FYM)+(FYP-FYM)*AA4SPS
+	BZC=PA(3)*(FZP+FZM)+(FZP-FZM)*AA4SPS
+C
+C   AT LAST, SUM UP THE FIELDS.  THE CENTRAL CURRENT SHEET
+C   FIELD COMPONENTS ARE TRANSFORMED INTO GSM COORDINATES
+C
+	BX=BXC+BXT*CPS+BZT*SPS+BXCF
+	BY=BYC+BYT+BYCF
+	BZ=BZC+BZT*CPS-BXT*SPS+BZCF
+	RETURN
+	END
+
+
+C--------------------- Cut here for geogsm.f -----------------------
+      SUBROUTINE GEOGSM(XGEO,YGEO,ZGEO,XGSM,YGSM,ZGSM,J)
+C
+C CONVERTS GEOGRAPHIC TO SOLAR MAGNETOSPHERIC COORDINATES OR VICA VERSA.
+C
+C                   J>0                   J<0
+C----- INPUT:  J,XGEO,YGEO,ZGEO    J,XGSM,YGSM,ZGSM
+C---- OUTPUT:    XGSM,YGSM,ZGSM      XGEO,YGEO,ZGEO
+C  ATTENTION:  SUBROUTINE  RECALC  MUST BE CALLED BEFORE GEOGSM IN TWO CASES:
+C     /A/  BEFORE THE FIRST USE OF GEOGSM
+C     /B/  IF THE CURRENT VALUES OF IYEAR,IDAY,IHOUR,MIN,ISEC  ARE DIFFERENT
+C            FROM THOSE IN THE PREVIOUS CALL OF THIS SUBROUTINE
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      COMMON AA(17),A11,A21,A31,A12,A22,A32,A13,A23,A33,D,K,IY,B(8)
+      IF (J.LT.0) GOTO 1
+      XGSM=A11*XGEO+A12*YGEO+A13*ZGEO
+      YGSM=A21*XGEO+A22*YGEO+A23*ZGEO
+      ZGSM=A31*XGEO+A32*YGEO+A33*ZGEO
+      RETURN
+  1   XGEO=A11*XGSM+A21*YGSM+A31*ZGSM
+      YGEO=A12*XGSM+A22*YGSM+A32*ZGSM
+      ZGEO=A13*XGSM+A23*YGSM+A33*ZGSM
+      RETURN
+      END
+
+C--------------------- Cut here for geomag.f -----------------------
+      SUBROUTINE GEOMAG(XGEO,YGEO,ZGEO,XMAG,YMAG,ZMAG,J,IYR)
+C
+C CONVERTS GEOGRAPHIC (GEO) TO DIPOLE (MAG) COORDINATES OR VICA VERSA.
+C IYR IS YEAR NUMBER (FOUR DIGITS).
+C
+C                           J>0                J<0
+C-----INPUT:  J,XGEO,YGEO,ZGEO,IYR   J,XMAG,YMAG,ZMAG,IYR
+C-----OUTPUT:    XMAG,YMAG,ZMAG        XGEO,YGEO,ZGEO
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      COMMON ST0,CT0,SL0,CL0,CTCL,STCL,CTSL,STSL,AB(19),K,IY,BB(8)
+      DATA II/1/
+      IF(IYR.EQ.II) GOTO 1
+      II=IYR
+      CALL RECALC(II,0,25,0,0)
+  1   CONTINUE
+      IF(J.LT.0) GOTO 2
+      XMAG=XGEO*CTCL+YGEO*CTSL-ZGEO*ST0
+      YMAG=YGEO*CL0-XGEO*SL0
+      ZMAG=XGEO*STCL+YGEO*STSL+ZGEO*CT0
+      RETURN
+  2   XGEO=XMAG*CTCL-YMAG*SL0+ZMAG*STCL
+      YGEO=XMAG*CTSL+YMAG*CL0+ZMAG*STSL
+      ZGEO=ZMAG*CT0-XMAG*ST0
+      RETURN
+      END
+
+C--------------------- Cut here for gsmgse.f -----------------------
+       SUBROUTINE GSMGSE(XGSM,YGSM,ZGSM,XGSE,YGSE,ZGSE,J)
+C
+C CONVERTS SOLAR MAGNETOSPHERIC (GSM) TO SOLAR ECLIPTICAL (GSE) COORDS
+C   OR VICA VERSA.
+C                    J>0                J<0
+C-----INPUT: J,XGSM,YGSM,ZGSM    J,XGSE,YGSE,ZGSE
+C----OUTPUT:   XGSE,YGSE,ZGSE      XGSM,YGSM,ZGSM
+C  ATTENTION:  SUBROUTINE  RECALC  MUST BE CALLED BEFORE GSMGSE IN TWO CASES:
+C     /A/  BEFORE THE FIRST CALL OF GSMGSE
+C     /B/  IF THE CURRENT VALUES OF IYEAR,IDAY,IHOUR,MIN,ISEC ARE DIFFERENT
+C          FROM THOSE IN THE PRECEDING  CALL  OF GSMGSE
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      COMMON A(12),SHI,CHI,AB(13),K,IY,BA(8)
+      IF(J.LT.0) GOTO 1
+      XGSE=XGSM
+      YGSE=YGSM*CHI-ZGSM*SHI
+      ZGSE=YGSM*SHI+ZGSM*CHI
+      RETURN
+1     XGSM=XGSE
+      YGSM=YGSE*CHI+ZGSE*SHI
+      ZGSM=ZGSE*CHI-YGSE*SHI
+      RETURN
+      END
+
+C--------------------- Cut here for igrf.f -----------------------
+      SUBROUTINE IGRF(IY,NM,R,T,F,BR,BT,BF)
+C
+C  CALCULATES COMPONENTS OF MAIN GEOMAGNETIC FIELD IN SPHERICAL
+C  GEOGRAPHICAL COORD SYSTEM BY USING THIRD GENERATION IGRF MODEL
+C  (J. GEOMAG. GEOELECTR.(1982), V.34, P.313-315,
+C  GEOMAGN. AND AERONOMY (1986), V.26, P.523-525).
+C  UPDATING OF COEFFICIENTS TO A GIVEN EPOCH IS MADE DURING THE FIRST
+C  CALL AND AFTER EVERY CHANGE OF PARAMETER IY.
+C------INPUT PARAMETERS:
+C  IY - YEAR NUMBER (FROM 1965 UP TO 1990)
+C  NM - MAXIMAL ORDER OF HARMONICS TAKEN INTO ACCOUNT (NOT MORE THAN 10)
+C  R,T,F - SPHERICAL COORDINATES OF THE POINT (R IN UNITS RE=6371.2 KM,
+C  COLATITUDE T AND LONGITUDE F IN RADIANS)
+C----- OUTPUT PARAMETERS:
+C  BR,BT,BF - SPHERICAL COMPONENTS OF MAIN GEOMAGN.FIELD IN NANOTESLA
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      DIMENSION A(11),B(11),G(66),H(66),REC(66),G65(66),H65(66),G70(66),
+     *H70(66),G75(66),H75(66),G80(66),H80(66),G85(66),H85(66),
+     *DG85(45),DH85(45)
+      LOGICAL BK,BM
+      DATA G65/0.,-30334.,-2119.,-1662.,2997.,1594.,1297.,-2038.,1292.,
+     *856.,957.,804.,479.,-390.,252.,-219.,358.,254.,-31.,-157.,-62.,
+     *45.,61.,8.,-228.,4.,1.,-111.,75.,-57.,4.,13.,-26.,-6.,13.,1.,13.,
+     *5.,-4.,-14.,0.,8.,-1.,11.,4.,8.,10.,2.,-13.,10.,-1.,-1.,5.,1.,-2.,
+     *-2.,-3.,2.,-5.,-2.,4.,4.,0.,2.,2.,0./
+      DATA H65/0.,0.,5776.,0.,-2016.,114.,0.,-404.,240.,-165.,0.,148.,
+     *-269.,13.,-269.,0.,19.,128.,-126.,-97.,81.,0.,-11.,100.,68.,-32.,
+     *-8.,-7.,0.,-61.,-27.,-2.,6.,26.,-23.,-12.,0.,7.,-12.,9.,-16.,4.,
+     *24.,-3.,-17.,0.,-22.,15.,7.,-4.,-5.,10.,10.,-4.,1.,0.,2.,1.,2.,
+     *6.,-4.,0.,-2.,3.,0.,-6./
+      DATA G70/0.,-30220.,-2068.,-1781.,3000.,1611.,1287.,-2091.,1278.,
+     *838.,952.,800.,461.,-395.,234.,-216.,359.,262.,-42.,-160.,-56.,
+     *43.,64.,15.,-212.,2.,3.,-112.,72.,-57.,1.,14.,-22.,-2.,13.,-2.,
+     *14.,6.,-2.,-13.,-3.,5.,0.,11.,3.,8.,10.,2.,-12.,10.,-1.,0.,3.,
+     *1.,-1.,-3.,-3.,2.,-5.,-1.,6.,4.,1.,0.,3.,-1./
+      DATA H70/0.,0.,5737.,0.,-2047.,25.,0.,-366.,251.,-196.,0.,167.,
+     *-266.,26.,-279.,0.,26.,139.,-139.,-91.,83.,0.,-12.,100.,72.,-37.,
+     *-6.,1.,0.,-70.,-27.,-4.,8.,23.,-23.,-11.,0.,7.,-15.,6.,-17.,6.,
+     *21.,-6.,-16.,0.,-21.,16.,6.,-4.,-5.,10.,11.,-2.,1.,0.,1.,1.,3.,
+     *4.,-4.,0.,-1.,3.,1.,-4./
+      DATA G75/0.,-30100.,-2013.,-1902.,3010.,1632.,1276.,-2144.,1260.,
+     *830.,946.,791.,438.,-405.,216.,-218.,356.,264.,-59.,-159.,-49.,
+     *45.,66.,28.,-198.,1.,6.,-111.,71.,-56.,1.,16.,-14.,0.,12.,-5.,
+     *14.,6.,-1.,-12.,-8.,4.,0.,10.,1.,7.,10.,2.,-12.,10.,-1.,-1.,4.,
+     *1.,-2.,-3.,-3.,2.,-5.,-2.,5.,4.,1.,0.,3.,-1./
+      DATA H75/0.,0.,5675.,0.,-2067.,-68.,0.,-333.,262.,-223.,0.,191.,
+     *-265.,39.,-288.,0.,31.,148.,-152.,-83.,88.,0.,-13.,99.,75.,-41.,
+     *-4.,11.,0.,-77.,-26.,-5.,10.,22.,-23.,-12.,0.,6.,-16.,4.,-19.,6.,
+     *18.,-10.,-17.,0.,-21.,16.,7.,-4.,-5.,10.,11.,-3.,1.,0.,1.,1.,3.,
+     *4.,-4.,-1.,-1.,3.,1.,-5./
+      DATA G80/0.,-29992.,-1956.,-1997.,3027.,1663.,1281.,-2180.,1251.,
+     *833.,938.,782.,398.,-419.,199.,-218.,357.,261.,-74.,-162.,-48.,
+     *48.,66.,42.,-192.,4.,14.,-108.,72.,-59.,2.,21.,-12.,1.,11.,-2.,
+     *18.,6.,0.,-11.,-7.,4.,3.,6.,-1.,5.,10.,1.,-12.,9.,-3.,-1.,7.,2.,
+     *-5.,-4.,-4.,2.,-5.,-2.,5.,3.,1.,2.,3.,0./
+      DATA H80/0.,0.,5604.,0.,-2129.,-200.,0.,-336.,271.,-252.,0.,212.,
+     *-257.,53.,-297.,0.,46.,150.,-151.,-78.,92.,0.,-15.,93.,71.,-43.,
+     *-2.,17.,0.,-82.,-27.,-5.,16.,18.,-23.,-10.,0.,7.,-18.,4.,-22.,9.,
+     *16.,-13.,-15.,0.,-21.,16.,9.,-5.,-6.,9.,10.,-6.,2.,0.,1.,0.,3.,
+     *6.,-4.,0.,-1.,4.,0.,-6./
+      DATA G85/0.,-29877.,-1903.,-2073.,3045.,1691.,1300.,-2208.,1244.,
+     *835.,937.,780.,363.,-426.,169.,-215.,356.,253.,-94.,-161.,-48.,
+     *52.,65.,50.,-186.,4.,17.,-102.,75.,-61.,2.,24.,-6.,4.,9.,0.,21.,
+     *6.,0.,-11.,-9.,2.,4.,4.,-6.,5.,10.,1.,-12.,9.,-3.,-1.,7.,2.,-5.,
+     *-4.,-4.,2.,-5.,-2.,5.,3.,1.,2.,3.,0./
+      DATA H85/0.,0.,5497.,0.,-2191.,-309.,0.,-312.,284.,-296.,0.,233.,
+     *-250.,68.,-298.,0.,47.,148.,-155.,-75.,95.,0.,-16.,90.,69.,-50.,
+     *-4.,20.,0.,-82.,-26.,-1.,23.,17.,-21.,-6.,0.,7.,-21.,5.,-25.,11.,
+     *12.,-16.,-10.,0.,-21.,16.,9.,-5.,-6.,9.,10.,-6.,2.,0.,1.,0.,3.,
+     *6.,-4.,0.,-1.,4.,0.,-6./
+      DATA DG85 /0.,23.2,10.0,-13.7,3.4,7.0,5.1,-4.6,-0.6,0.1,0.1,-0.6,
+     *-7.8,-1.4,-6.8,1.3,0.1,-1.5,-3.2,0.1,-0.1,1.4,-0.3,1.7,0.6,0.0,
+     *0.9,1.2,0.2,-0.6,-0.5,0.8,1.0,0.4,-0.5,-0.1,0.7,0.,0.3,0.4,-0.3,
+     *-0.3,0.1,-0.5,-0.8/
+      DATA DH85 /0.,0.,-24.5,0.,-11.5,-20.2,0.,5.3,2.3,-10.8,0.,3.8,2.2,
+     *2.5,0.9,0.,0.1,-0.2,-0.1,0.6,0.,0.,-0.4,-1.1,-0.8,-2.3,-0.5,-0.1,
+     *0.,0.2,1.0,1.1,1.9,0.3,0.2,0.9,0.,0.1,-1.0,0.1,-0.8,0.2,-0.8,-0.1,
+     *1.3/
+      DATA MA,IYR,IPR/0,0,0/
+      IF(MA.NE.1) GOTO 1
+      IF(IY.NE.IYR) GOTO 3
+      GOTO 13
+  1   MA=1
+      KNM=15
+      DO 2 N=1,11
+      N2=2*N-1
+      N2=N2*(N2-2)
+      DO 2 M=1,N
+      MN=N*(N-1)/2+M
+  2   REC(MN)=FLOAT((N-M)*(N+M-2))/FLOAT(N2)
+  3   IYR=IY
+      IF (IYR.LT.1965) IYR=1965
+      IF (IYR.GT.1990) IYR=1990
+      IF (IY.NE.IYR.AND.IPR.EQ.0) write(*,50)IY,IYR
+      IF (IYR.NE.IY) IPR=1
+      IF (IYR.LT.1970) GOTO 5
+      IF (IYR.LT.1975) GOTO 7
+      IF (IYR.LT.1980) GOTO 9
+      IF (IYR.LT.1985) GOTO 90
+      DT=FLOAT(IYR)-1985.
+      DO 4 N=1,66
+      G(N)=G85(N)
+      H(N)=H85(N)
+      IF (N.GT.45) GOTO 4
+      G(N)=G(N)+DG85(N)*DT
+      H(N)=H(N)+DH85(N)*DT
+  4   CONTINUE
+      GOTO 11
+  5   F2=(IYR-1965)/5.
+      F1=1.-F2
+      DO 6 N=1,66
+      G(N)=G65(N)*F1+G70(N)*F2
+  6   H(N)=H65(N)*F1+H70(N)*F2
+      GOTO 11
+  7   F2=(IYR-1970)/5.
+      F1=1.-F2
+      DO 8 N=1,66
+      G(N)=G70(N)*F1+G75(N)*F2
+  8   H(N)=H70(N)*F1+H75(N)*F2
+      GOTO 11
+  9   F2=(IYR-1975)/5.
+      F1=1.-F2
+      DO 10 N=1,66
+      G(N)=G75(N)*F1+G80(N)*F2
+ 10   H(N)=H75(N)*F1+H80(N)*F2
+      GOTO 11
+ 90   F2=(IYR-1980)/5.
+      F1=1.-F2
+      DO 80 N=1,66
+      G(N)=G80(N)*F1+G85(N)*F2
+ 80   H(N)=H80(N)*F1+H85(N)*F2
+ 11   S=1.
+      DO 12 N=2,11
+      MN=N*(N-1)/2+1
+      S=S*FLOAT(2*N-3)/FLOAT(N-1)
+      G(MN)=G(MN)*S
+      H(MN)=H(MN)*S
+      P=S
+      DO 12 M=2,N
+      AA=1.
+      IF (M.EQ.2) AA=2.
+      P=P*SQRT(AA*FLOAT(N-M+1)/FLOAT(N+M-2))
+      MNN=MN+M-1
+      G(MNN)=G(MNN)*P
+ 12   H(MNN)=H(MNN)*P
+ 13   IF(KNM.EQ.NM) GO TO 14
+      KNM=NM
+      K=KNM+1
+ 14   PP=1./R
+      P=PP
+      DO 15 N=1,K
+      P=P*PP
+      A(N)=P
+ 15   B(N)=P*N
+      P=1.
+      D=0.
+      BBR=0.
+      BBT=0.
+      BBF=0.
+      U=T
+      CF=COS(F)
+      SF=SIN(F)
+      C=COS(U)
+      S=SIN(U)
+      BK=(S.LT.1.E-5)
+      DO 20 M=1,K
+      BM=(M.EQ.1)
+      IF(BM) GOTO 16
+      MM=M-1
+      W=X
+      X=W*CF+Y*SF
+      Y=Y*CF-W*SF
+      GOTO 17
+ 16   X=0.
+      Y=1.
+ 17   Q=P
+      Z=D
+      BI=0.
+      P2=0.
+      D2=0.
+      DO 19 N=M,K
+      AN=A(N)
+      MN=N*(N-1)/2+M
+      E=G(MN)
+      HH=H(MN)
+      W=E*Y+HH*X
+      BBR=BBR+B(N)*W*Q
+      BBT=BBT-AN*W*Z
+      IF(BM) GOTO 18
+      QQ=Q
+      IF(BK) QQ=Z
+      BI=BI+AN*(E*X-HH*Y)*QQ
+  18  XK=REC(MN)
+      DP=C*Z-S*Q-XK*D2
+      PM=C*Q-XK*P2
+      D2=Z
+      P2=Q
+      Z=DP
+  19  Q=PM
+      D=S*D+C*P
+      P=S*P
+      IF(BM) GOTO 20
+      BI=BI*MM
+      BBF=BBF+BI
+  20  CONTINUE
+      BR=BBR
+      BT=BBT
+      IF(BK) GOTO 21
+      BF=BBF/S
+      GOTO 22
+  21  IF(C.LT.0.) BBF=-BBF
+      BF=BBF
+  22  CONTINUE
+      RETURN
+  50  FORMAT(//1X,'**** YEAR IS OUT OF INTERVAL 1965-1990: IY =',I5,
+     *', CALCULATIONS WILL BE DONE FOR IYR =',I5,' ****'//)
+      END
+
+C--------------------- Cut here for magsm.f -----------------------
+      SUBROUTINE MAGSM(XMAG,YMAG,ZMAG,XSM,YSM,ZSM,J)
+C
+C CONVERTS DIPOLE (MAG) TO SOLAR MAGNETIC (SM) COORDINATES OR VICA VERSA
+C
+C                    J>0              J<0
+C-----INPUT: J,XMAG,YMAG,ZMAG     J,XSM,YSM,ZSM
+C----OUTPUT:    XSM,YSM,ZSM       XMAG,YMAG,ZMAG
+C  ATTENTION:  SUBROUTINE  RECALC  MUST BE CALLED BEFORE MAGSM IN TWO CASES:
+C     /A/  BEFORE THE FIRST USE OF MAGSM
+C     /B/  IF THE CURRENT VALUES OF IYEAR,IDAY,IHOUR,MIN,ISEC ARE DIFFERENT     
+C          FROM THOSE IN THE PRECEDING CALL OF  MAGSM
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      COMMON A(8),SFI,CFI,B(7),AB(10),K,IY,BA(8)
+      IF (J.LT.0) GOTO 1
+      XSM=XMAG*CFI-YMAG*SFI
+      YSM=XMAG*SFI+YMAG*CFI
+      ZSM=ZMAG
+      RETURN
+  1   XMAG=XSM*CFI+YSM*SFI
+      YMAG=YSM*CFI-XSM*SFI
+      ZMAG=ZSM
+      RETURN
+      END
+
+C--------------------- Cut here for recalc.f -----------------------
+      SUBROUTINE RECALC(IYR,IDAY,IHOUR,MIN,ISEC)
+C
+C  CALCULATES GEODIPOLE AXIS ORIENTATION FOR A GIVEN YEAR, DAY AND UT;
+C  PREPARES MATRICES FOR THE FIVE TRANSFORMATION SUBROUTINES: geomag,geogsm,
+c  magsm,smgsm,gsmgse
+C     ALL THE PARAMETERS ARE INPUT ONES:
+C  IYR - YEAR (FROM 1965 UP TO 1990),
+C  IDAY - DAY NUMBER (JANUARY 1 IS IDAY=1),
+C  IHOUR,MIN,ISEC - UT. IF IHOUR>24 THEN ONLY GEOMAG MATRIX IS PRERARED.
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      COMMON ST0,CT0,SL0,CL0,CTCL,STCL,CTSL,STSL,SFI,CFI,SPS,CPS,
+     *SHI,CHI,HI,PSI,XMUT,A(3,3),AB,K,IY,BA(8)
+      DIMENSION X(3,3)
+      DATA IYE,IPR/0,0/
+      IF(IYR.EQ.IYE) GOTO 5
+      IY=IYR
+      IF (IY.LT.1965) IY=1965
+      IF (IY.GT.1990) IY=1990
+      IF (IY.NE.IYR.AND.IPR.EQ.0) write(*,10)IY,IYR
+      IF (IY.NE.IYR) IPR=1
+      IYE=IY
+      IF (IY.LT.1970) GOTO 1
+      IF (IY.LT.1975) GOTO 2
+      IF (IY.LT.1980) GOTO 3
+      IF (IY.LT.1985) GOTO 30
+      DT=FLOAT(IY)-1985.
+      G10=29877.-23.2*DT
+      G11=-1903.+10.0*DT
+      H11=5497.-24.5*DT
+      GOTO 4
+  1   F2=(IY-1965)/5.
+      F1=1.-F2
+      G10=30334.*F1+30220.*F2
+      G11=-2119.*F1-2068.*F2
+      H11=5776.*F1+5737.*F2
+      GOTO 4
+  2   F2=(IY-1970)/5.
+      F1=1.-F2
+      G10=30220.*F1+30100.*F2
+      G11=-2068.*F1-2013.*F2
+      H11=5737.*F1+5675.*F2
+      GOTO 4
+  3   F2=(IY-1975)/5.
+      F1=1.-F2
+      G10=30100.*F1+29992.*F2
+      G11=-2013.*F1-1956.*F2
+      H11=5675.*F1+5604.*F2
+  30  F2=(IY-1980)/5.
+      F1=1.-F2
+      G10=29992.*F1+29877.*F2
+      G11=-1956.*F1-1903.*F2
+      H11=5604.*F1+5497.*F2
+  4   XL0=ATAN(H11/G11)
+      SQ=G11**2+H11**2
+      SQQ=SQRT(SQ)
+      SQ=SQRT(SQ+G10**2)
+      ST0=SQQ/SQ
+      CT0=G10/SQ
+      SL0=-H11/SQQ
+      CL0=-G11/SQQ
+      CTCL= CT0*CL0
+      CTSL=CT0*SL0
+      STCL=ST0*CL0
+      STSL=ST0*SL0
+  5   IF(IHOUR.GT.24) GOTO 8
+      CALL SUN(IYR,IDAY,IHOUR,MIN,ISEC,GST,SLONG,SRASN,SDEC)
+      AL=.2618*(FLOAT(IHOUR)+FLOAT(MIN)/60.+FLOAT(ISEC)/3600.-12.)
+      SAL=SIN(AL)
+      CAL=COS(AL)
+      DEL=AL+XL0
+      SDL=SIN(DEL)
+      CDL=COS(DEL)
+      CSL=COS(SLONG)
+      SSD=SIN(SDEC)
+      CSD=COS(SDEC)
+      STCD=ST0*CDL
+      SPS=CT0*SSD+STCD*CSD
+      Y1=ST0*SDL
+      Z1=CT0*CSD-STCD*SSD
+      TB=.4336072*CSL
+      CB=1./SQRT(1.+TB**2)
+      SB=TB*CB
+      THI=(Y1*CB+Z1*SB)/(Y1*SB-Z1*CB)
+      CHI=1./SQRT(1.+THI**2)
+      SHI=CHI*THI
+      CPS=SQRT(1.-SPS**2)
+      HI=ATAN(THI)
+      PSI=ATAN(SPS/CPS)
+
+      WRITE(6,*) SHI,CHI
+C
+C  FOR ZERO DIPOLE TILT
+C
+C      PSI=3.14159/18.
+C     CPS=COS(PSI)
+C     SPS=SIN(PSI)
+C
+      X1=CSD*CAL
+      Y1=-CSD*SAL
+      Z1=(X1*CL0+Y1*SL0)*CT0-SSD*ST0
+      Y1=Y1*CL0-X1*SL0
+      XMUT=12.-3.8197*ATAN2(Y1,Z1)
+      FI=.2618*(XMUT-12.)
+      SFI=SIN(FI)
+      CFI=COS(FI)
+      DO 6 I=1,3
+      DO 6 L=1,3
+      X(I,L)=0.
+      IF (I.EQ.L) X(I,L)=1.
+  6   CONTINUE
+      DO 7 I=1,3
+      Y1=X(I,1)*CTCL+X(I,2)*CTSL-X(I,3)*ST0
+      Y2=X(I,2)*CL0-X(I,1)*SL0
+      Y3=X(I,1)*STCL+X(I,2)*STSL+X(I,3)*CT0
+      CALL MAGSM(Y1,Y2,Y3,Z1,Z2,Z3,1)
+  7   CALL SMGSM(Z1,Z2,Z3,A(1,I),A(2,I),A(3,I),1)
+  8   CONTINUE
+ 10   FORMAT(//1X,'**** YEAR IS OUT OF INTERVAL 1965-1990: IY =',I5,
+     *', CALCULATIONS WILL BE DONE FOR IYR =',I5,' ****'//)
+      RETURN
+      END
+
+C--------------------- Cut here for rhand.f -----------------------
+      SUBROUTINE RHAND(X,Y,Z,R1,R2,R3,IOPT)
+C
+C COMPUTES RIGHT HAND EXPRESSIONS IN THE GEOMAGNETIC FIELD LINE EQUATION
+C      (a subsidiary subroutine for the subr. STEP)
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+ 
+      COMMON A(15),PSI,AA(10),DS3,K,IY,BB(8)
+C
+      
+C 
+c     CALL EXNAME(IOPT,PSI,X,Y,Z,BX,BY,BZ)
+C
+      
+C
+      IF (K.EQ.0) GOTO 1
+      CALL GEOGSM(XG,YG,ZG,X,Y,Z,-1)
+      CALL SPHCAR(R,T,F,XG,YG,ZG,-1)
+      CALL IGRF(IY,K,R,T,F,BR,BT,BF)
+      CALL BSPCAR(T,F,BR,BT,BF,FX,FY,FZ)
+      CALL GEOGSM(FX,FY,FZ,HX,HY,HZ,1)
+      GOTO 2
+  1   CALL ZWING(PSI,X,Y,Z,HX,HY,HZ)
+      hx1=0.
+      hz1=0.
+      hx2=0.
+      hz2=0.
+      hx3=0.
+      hz3=0.
+c     call pert1(psi,x,y,z,hx1,hy1,hz1)
+c     call pert2(psi,x,y,z,hx2,hy2,hz2)
+c     bxdiff=hx2-hx1
+c     bzdiff=hz2-hz1
+c     deltat=(time-tbase)/30.
+c 2   BX=HX+HX1+HX2+HX3
+c     BY=HY+HY1+HY2+HY3
+c     BZ=HZ+HZ1+HZ2+HZ3
+c 2   BX=hx+hx1+bxdiff*deltat
+c     BY=0.0
+c     BZ=hz+hz1+bzdiff*deltat
+  2   BX=hx
+      BY=0.0
+      BZ=hz
+c     xxx=abs(x)
+c     if (xxx .ge. 22.5 .and. xxx .le. 60.) then
+c        BZ=BZ*SIN(2.*3.14159265358979*(ABS(X)-20.)/5.)
+c     endif
+      B=DS3/SQRT(BX**2+BY**2+BZ**2)
+      R1=BX*B
+      R2=BY*B
+      R3=BZ*B
+      RETURN
+      END
+
+C--------------------- Cut here for smgsm.f -----------------------
+       SUBROUTINE SMGSM(XSM,YSM,ZSM,XGSM,YGSM,ZGSM,J)
+C
+C CONVERTS SOLAR MAGNETIC (SM) TO SOLAR MAGNETOSPHERIC (GSM) COORDINATES
+C   OR VICA VERSA.
+C                  J>0                 J<0
+C-----INPUT: J,XSM,YSM,ZSM        J,XGSM,YGSM,ZGSM
+C----OUTPUT:  XGSM,YGSM,ZGSM       XSM,YSM,ZSM
+C
+C  ATTENTION:  SUBROUTINE RECALC MUST BE CALLED BEFORE SMGSM IN TWO CASES:
+C     /A/  BEFORE THE FIRST USE OF SMGSM
+C     /B/  IF THE CURRENT VALUES OF IYEAR,IDAY,IHOUR,MIN,ISEC ARE DIFFERENT
+C          FROM THOSE IN THE PRECEDING CALL OF SMGSM
+C
+C
+C                AUTHOR: NIKOLAI A. TSYGANENKO
+C                        INSTITUTE OF PHYSICS 
+C                        LENINGRAD  UNIVERSITY
+C                        STARY PETERGOF 198904
+C                        LENINGRAD
+C                        U.S.S.R.
+C 
+      COMMON A(10),SPS,CPS,B(15),K,IY,AB(8)
+      IF (J.LT.0) GOTO 1
+      XGSM=XSM*CPS+ZSM*SPS
+      YGSM=YSM
+      ZGSM=ZSM*CPS-XSM*SPS
+      RETURN
+  1   XSM=XGSM*CPS-ZGSM*SPS
+      YSM=YGSM
+      ZSM=XGSM*SPS+ZGSM*CPS
+      RETURN
+      END
+
+C--------------------- Cut here for sphcar.f -----------------------
+      SUBROUTINE SPHCAR(R,TETA,PHI,X,Y,Z,J)
+C
+C   CONVERTS SPHERICAL COORDS INTO CARTESIAN ONES AND VICA VERSA
+C    (TETA AND PHI IN RADIANS).
+C
+C                  J>0            J<0
+C-----INPUT:   J,R,TETA,PHI     J,X,Y,Z
+C----OUTPUT:      X,Y,Z        R,TETA,PHI
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      IF(J.GT.0) GOTO 3
+      SQ=X**2+Y**2
+      R=SQRT(SQ+Z**2)
+      IF (SQ.NE.0.) GOTO 2
+      PHI=0.
+      IF (Z.LT.0.) GOTO 1
+      TETA=0.
+      RETURN
+  1   TETA=3.141592654
+      RETURN
+  2   SQ=SQRT(SQ)
+      PHI=ATAN2(Y,X)
+      TETA=ATAN2(SQ,Z)
+      IF (PHI.LT.0.) PHI=PHI+6.28318531
+      RETURN
+  3   SQ=R*SIN(TETA)
+      X=SQ*COS(PHI)
+      Y=SQ*SIN(PHI)
+      Z=R*COS(TETA)
+      RETURN
+      END
+
+C--------------------- Cut here for step.f -----------------------
+      SUBROUTINE STEP(N,X,Y,Z,DS,ERRIN,IOPT)
+C
+C RE-CALCULATES COORDS X,Y,Z FOR ONE STEP ALONG FIELD LINE. N IS MAXIMUM
+C ORDER OF HARMONICS IN MAIN FIELD EXPANSION, DS IS STEP SIZE, ERRIN IS 
+C PERMISSIBLE ERROR VALUE, IOPT AND EXNAME - SEE COMMENTS TO SUBROUTINE TRACE
+C  ALL THE PARAMETERS ARE INPUT ONES; OUTPUT IS THE RENEWED TRIPLET X,Y,Z
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      COMMON A(26),DS3,K,IY,B(8)
+c     EXTERNAL EXNAME
+      K=N
+  1   DS3=-DS/3.
+      CALL RHAND(X,Y,Z,R11,R12,R13,IOPT)
+      CALL RHAND(X+R11,Y+R12,Z+R13,R21,R22,R23,IOPT)
+      CALL RHAND(X+.5*(R11+R21),Y+.5*(R12+R22),Z+.5*
+     *(R13+R23),R31,R32,R33,IOPT)
+      CALL RHAND(X+.375*(R11+3.*R31),Y+.375*(R12+3.*R32
+     *),Z+.375*(R13+3.*R33),R41,R42,R43,IOPT)
+      CALL RHAND(X+1.5*(R11-3.*R31+4.*R41),Y+1.5*(R12-
+     *3.*R32+4.*R42),Z+1.5*(R13-3.*R33+4.*R43),
+     *R51,R52,R53,IOPT)
+      ERRCUR=ABS(R11-4.5*R31+4.*R41-.5*R51)+ABS(R12-4.5*R32+4.*R42-.5*
+     *R52)+ABS(R13-4.5*R33+4.*R43-.5*R53)
+      IF (ERRCUR.LT.ERRIN) GOTO 2
+      DS=DS*.5
+      GOTO 1
+  2   X=X+.5*(R11+4.*R41+R51)
+      Y=Y+.5*(R12+4.*R42+R52)
+      Z=Z+.5*(R13+4.*R43+R53)
+      IF(ERRCUR.LT.ERRIN*.04.AND.ABS(DS).LT.1.33) DS=DS*1.5
+      RETURN
+      END
+
+C--------------------- Cut here for sun.f -----------------------
+      SUBROUTINE SUN(IYR,IDAY,IHOUR,MIN,ISEC,GST,SLONG,SRASN,SDEC)
+C
+C  CALCULATES FOUR QUANTITIES NECESSARY FOR COORDINATE TRANSFORMATIONS
+C  DEPENDENT ON SUN POSITION (AND, HENCE, ON UNIVERSAL TIME AND SEASON)
+C-------  INPUT PARAMETERS:
+C   IYR,IDAY,IHOUR,MIN,ISEC -  YEAR, DAY, AND UNIVERSAL TIME
+C     (IDAY=1 CORRESPONDS TO JANUARY 1).
+C-------  OUTPUT PARAMETERS:
+C  GST - GREENWICH MEAN SIDEREAL TIME, SLONG - LONGITUDE ALONG ECLIPTIC
+C  SRASN - RIGHT ASCENSION,  SDEC - DECLINATION  OF THE SUN (RADIANS)
+C  THIS SUBROUTINE HAS BEEN COMPILED FROM: RUSSELL C.T., COSM.ELECTRO-
+C  DYN., 1971, V.2,PP.184-196.
+C
+C
+C                   AUTHOR: CHRISTOPHER T.RUSSELL
+C                           INSTITUTE OF GEOPHYSICS AND PLANETARY PHYSICS
+C                           UNIVERSITY OF CALIFORNIA, LOS ANGELES
+C                           LOS ANGELES, CALIFORNIA 90024
+C                           U.S.A.   
+C
+      DOUBLE PRECISION DJ,FDAY
+      DATA RAD/57.29578/
+      IF(IYR.LT.1901.OR.IYR.GT.2099) RETURN
+      FDAY=DBLE((IHOUR*3600.+MIN*60.+ISEC)/86400.)
+      DJ=365*(IYR-1900)+(IYR-1901)/4+IDAY-0.5D0+FDAY
+      T=DJ/36525.
+      VL=DMOD(279.696678+0.9856473354*DJ,360.D0)
+      GST=DMOD(279.690983+.9856473354*DJ+360.*FDAY+180.,360.D0)/RAD
+      G=DMOD(358.475845+0.985600267*DJ,360.D0)/RAD
+      SLONG=(VL+(1.91946-0.004789*T)*SIN(G)+0.020094*SIN(2.*G))/RAD
+      IF(SLONG.GT.6.2831853) SLONG=SLONG-6.2831853
+      IF (SLONG.LT.0.) SLONG=SLONG+6.2831853
+      OBLIQ=(23.45229-0.0130125*T)/RAD
+      SOB=SIN(OBLIQ)
+      SIND=SOB*SIN(SLONG-9.924E-5)
+      COSD=SQRT(1.-SIND**2)
+      SC=SIND/COSD
+      SDEC=ATAN(SC)
+      SRASN=3.141592654-ATAN2(COS(OBLIQ)/SOB*SC,-COS(SLONG)/COSD)
+      RETURN
+      END
+
+C--------------------- Cut here for trace.f -----------------------
+      SUBROUTINE TRACE(XI,YI,ZI,DIR,RLIM,R0,IHARM,NP,IOPT,
+     *XF,YF,ZF,XX,YY,ZZ,L)
+C
+C   TRACES FIELD LINE FROM ARBITRARY POINT OF SPACE UP TO THE EARTH
+C   SURFACE OR UP TO MODEL LIMITING BOUNDARY.
+C-------------- INPUT PARAMETERS:
+C   XI,YI,ZI - GSM COORDS OF INITIAL POINT (IN EARTH RADII),
+C   DIR - SIGN OF TRACING DIRECTION: IF DIR=1. THEN ANTIPARALLEL TO
+C     B VECTOR (E.G. FROM NORTHERN TO SOUTHERN CONJUGATE POINT),
+C     AND IF DIR=-1. THEN PARALLEL TO B.
+C   R0 IS RADIUS OF SPHERE (IN RE) FOR WHICH 'LANDING POINT' COORDINATES
+C     XF,YF,ZF  SHOULD BE CALCULATED
+C   RLIM - UPPER GEOCENTRIC DISTANCE WHICH LIMITS TRACING REGION.
+C   IHARM - MAXIMAL ORDER OF SPH.HARMONICS IN THE MAIN FIELD EXPANSION,
+C     IT DEPENDS ON THE CURRENT VERSION OF INTERNAL FIELD MODEL. SUB-
+C     ROUTINE IGRF OF THIS ISSUE CORRESPONDS TO IHARM=10. IF THE MAIN
+C     FIELD SHOULD BE ASSUMED TO BE PURELY DIPOLAR, THEN PUT IHARM=0
+C     AND SPECIFY VALUE OF GEODIPOLE TILT ANGLE PSI (IN RADIANS)
+C     IN THE 16-TH ELEMENT OF THE COMMON BLOCK BEFORE CALLING TRACE.
+C     OTHERWISE CALL SUBROUTINE RECALC BEFORE CALLING TRACE.
+C   NP - UPPER ESTIMATE OF NUMBER OF STEPS ALONG THE FIELD LINE
+C     (OF THE ORDER OF SEVERAL HUNDREDS).
+C   IOPT - SPECIFIES OPTION OF EXTERNAL FIELD MODEL (E.G. LEVEL OF
+C     DISTURBANCE) - SEE COMMENTS TO SUBROUTINES EXTERN AND EXLONG.
+C   EXNAME - NAME OF THE EXTRATERRESTRIAL FIELD MODEL SUBROUTINE
+C     (EXTERN OR EXLONG OR SOME OTHER ONE).
+C-------------- OUTPUT PARAMETERS:
+C   XF,YF,ZF - GSM COORDS OF FINAL POINT
+C   XX,YY,ZZ - ARRAYS (LENGTH NP) CONTAINING COORDS OF FIELD LINE POINTS
+C   L - ACTUAL NUMBER OF FIELD LINE POINTS. IF L EXCEEDS NP, TRACING
+C     TERMINATES, AND A WARNING IS DISPLAYED
+C
+C
+C                   AUTHOR: NIKOLAI A. TSYGANENKO
+C                           INSTITUTE OF PHYSICS
+C                           LENINGRAD STATE UNIVERSITY
+C                           STARY PETERGOF 198904
+C                           LENINGRAD
+C                           USSR
+C
+      DIMENSION XX(NP),YY(NP),ZZ(NP)
+      COMMON AA(26),DD,K1,K2,BB(8)
+c     EXTERNAL EXNAME
+ 10   FORMAT(//,1X,'**** COMPUTATIONS IN THE SUBROUTINE TRACE',
+     *' ARE TERMINATED: NP IS TOO SMALL ****'//)
+      J=IHARM
+      ERR=0.005
+      L=0
+      DS=0.5*DIR
+      X=XI
+      Y=YI
+      Z=ZI
+      DD=DIR
+      K1=IHARM
+      AL=0.
+      CALL RHAND(X,Y,Z,R1,R2,R3,IOPT)
+      AD=SIGN(0.01,X*R1+Y*R2+Z*R3)
+      RR=SQRT(X**2+Y**2+Z**2)+AD
+  1   L=L+1
+      IF(L.GT.NP) GOTO 7
+      XX(L)=X
+      YY(L)=Y
+      ZZ(L)=Z
+c      print*,l,x,z
+      RYZ=Y**2+Z**2
+      R2=X**2+RYZ
+      R=SQRT(R2)
+c     IF (ABS(X-XI).LT..02.AND.ABS(Z-ZI).LT.0.02.AND.L.GT.2) GOTO 8
+      IF(R.GT.RLIM.OR.RYZ.GT.3500..OR.X.GT.121.) GOTO 8
+      IF(R.LT.R0.AND.RR.GT.R) GOTO 6
+      IF(R.GE.RR) GOTO 5
+      IF(R.GT.5.) GOTO 5
+      IF(R.GE.3.) GOTO 3
+      FC=0.2
+      IF(R-R0.LT.0.05) FC=0.05
+      AL=FC*(R-R0+0.2)
+      DS=DIR*AL
+      GOTO 4
+  3   DS=DIR
+      AL=1.
+  4   XR=X
+      YR=Y
+      ZR=Z
+  5   RR=R
+      IF(IHARM.NE.0) J=1+10./(R-AL)
+      IF(J.GT.IHARM) J=IHARM
+      CALL STEP(J,X,Y,Z,DS,ERR,IOPT)
+      GOTO 1
+  6   R1=(R0-R)/(RR-R)
+      X=X-(X-XR)*R1
+      Y=Y-(Y-YR)*R1
+      Z=Z-(Z-ZR)*R1
+      GOTO 8
+  7   write(*,10)
+      L=NP
+      RETURN
+  8   XF=X
+      YF=Y
+      ZF=Z
+      DO 9 I=L,NP
+      XX(I)=XF
+      YY(I)=YF
+  9   ZZ(I)=Z
+      RETURN
+      END
+
+
+
+

@@ -1,4 +1,5 @@
-*.o
 *.d
-*.vtk
+*.o
 *.out
+*.vtk
+/mhd2D
