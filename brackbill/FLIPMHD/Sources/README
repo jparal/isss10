@@ -1,0 +1,11 @@
+      The make file, Makegnu, will make an executable xflip.  The OpenMP
+  option is enabled. This requires giving the correct path to the library libgomp. 
+  If unavailable, the file can be compiled in single-processor form by 
+  removing -fopenmp from the command line.
+
+      It would be preferable if the file is executed in sub-directory
+  Projects. 
+
+      The size of the arrays is set by parameter statements in corgan_com_M.f.
+
+      

@@ -1,0 +1,25 @@
+set term aqua
+set style function lp
+set title 'FLIP Energy' font "Times,48"
+set xlabel ' t' font "Times,36"
+set ylabel 'energy'  font "Times,36"
+set xtics font "Times,36"
+set ytics font "Times,36"
+set label 1 "black ... total energy " at graph .6,.85  font "Times,24"
+set label 2 "red ... internal energy " at graph .6,.80 font "Times,24"
+set label 3 "green ... kinetic energy " at graph .6,.75 font "Times,24"
+set label 4 "magenta ... magnetic energyx " at graph .6,.70 font "Times,24"
+set multiplot
+set yrange [0.:45.]
+set xrange [0.:5.]
+plot 'fort.20' u 2:9 w l  -1
+plot 'fort.20' u 2:6 w l  1
+plot 'fort.20' u 2:7 w l  2
+plot 'fort.20' u 2:8 w l  3
+unset multiplot
+unset label 1
+unset label 2
+unset label 3
+unset label 4
+pause -1
+

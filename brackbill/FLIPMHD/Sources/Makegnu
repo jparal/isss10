@@ -1,0 +1,73 @@
+# Tunable parameters
+F90= gfortran
+LD= gfortran
+LIBS = # /usr/local/lib/libgomp.a
+CMD =            xflip
+FFLAGS = -O3 -fopenmp   -ffree-form 
+LDFLAGS = -fopenmp
+#
+# CF		Name of the fortran compiling system to use
+# LDFLAGS	Flags to the loader
+# LIBS		List of libraries
+# CMD		Name of the executable
+# PROFLIB	Library needed for profiling
+#
+#
+SRCS=   vast_kind_param_M.f  \
+        cindex_com_M.f cophys_com_M.f corgan_com_M.f  \
+        blcom_com_M.f geometry_com_M.f \
+        cplot_com_M.f gmres_com_M.f  \
+        logical_com_M.f \
+        nkmhd_com_M.f nk_com_M.f numpar_com_M.f Scratch_com_M.f   \
+        DXFiles.f Timing.f  \
+        accel_3dmhd.f axisavg.f begin.f bcc.f bc_wall.f budget.f celdex.f \
+        divphi_3dmhd.f  \
+        b_vtx.f bc_vtx.f bc_vertex.f bc_periodic.f \
+        bc_ghost.f bc_particles.f  bc_scalar.f bc_current.f bc_noslip.f \
+        celindex.f celstep.f chnglst.f debug.f dummyc.f\
+        CloseFiles.f  \
+        diagonal.f \
+        eos.f flip3d_nol.f geom_jub.f \
+        Eps_eval.f   \
+        evolmag_3dmhd.f    \
+        gmres_3dmhd.f gmres_vtx.f \
+        gridinit.f  \
+        InnerProductC.f  \
+        initiv.f implctp_gmres.f jacobi.f J_times_kvec.f \
+        L2NormF.f    \
+        map3d.f map3d_axis.f map3d_surf.f \
+        mfmpj.f \
+        magnetopause.f \
+        metric.f metricc.f mfnk_3dmhd.f \
+        mshset.f output.f parcelc.f parcelv.f \
+        newmag.f   \
+        OneJacobi.f OneWateC.f   \
+        parlocat_cart.f \
+        parmov.f parrefl.f parset.f partcles.f\
+        poisson_cg.f poisson_vtx.f \
+        residu_3dmhd.f residue_vtx.f stress_3dmhd.f \
+        resistive_diff.f \
+        rotate.f setzero.f SetZeroVector.f \
+        timstp.f torusbc_scalar.f \
+        trilin.f triquad.f triple.f vinit_gmres.f volume_vtx.f\
+        vtxindx.f watec.f watev.f weights.f \
+        VolumeIntegralC.f  \
+        svector.f sgrid3d.f strain.f strain_ns.f stress.f test.f vtxb.f
+
+OBJECTS = $(SRCS:.f=.o)
+
+.SUFFIXES:
+.SUFFIXES: .o .f
+
+.PHONY: clean tar
+
+.f.o:
+	$(F90) $(LN) -c $(FFLAGS) $<
+
+xflip:   $(OBJECTS)
+	$(LD) $(LDFLAGS) -o xflip $(OBJECTS)  $(LIBS)
+
+clean:
+	rm -f xflip *.o core
+ 
+ 

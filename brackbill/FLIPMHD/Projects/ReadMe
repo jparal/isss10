@@ -1,0 +1,29 @@
+     To run the problem for which input gives the data, type:
+
+    time ../Sources/./xflip
+
+     The path to libgomp may not be correct on your system.  If you don't have it
+     remove -fopenmp from the command line, and the program will run serially.
+
+
+     The execution will produce the files *.dx, which are data files for OpenDX
+     in native format.  It also writes fort.20, with a time series of values of energy,
+     which can be plotted using gnuplot and ../Plotters/plotNRG.
+
+    The problem is a 3D Kelving Helmholtz instability. A Harris sheet with B-y
+    reversing sign at z=L_z/2 is driven unstable by a shear flow u_x, which also reverses sign at 
+    z=L_z/2.  The novelty is that the shear flow varies in strength along the magnetic field,
+    so that the instability develops less rapidly at z=L_z/4 (B10.8.tiff) than at z=L_z/2
+    (B10.16.tiff).  In contrast with the same instability with no variation in y where
+    no magnetic reconnection occurs, there is reconnection with variation.  This is evident in 
+    FieldLines10.tiff and FieldLines20.tiff, or it would be with x-ray vision. 
+
+    The calculation with a 32x32x32 mesh requires 20 minutes.  One with a 16x16x16 mesh requires
+    less than 2 minutes.  the results are similar for resolved modes.
+
+    OpenDX plotting files are in Plotters.  With graphical interface, set import path to 
+    ../Projects/**.dx, depending o which file you wish to plot.
+
+
+
+    
