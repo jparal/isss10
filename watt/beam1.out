@@ -1,0 +1,49 @@
+ THE INPUT PARAMETERS ARE
+
+maxwellian      form of component  1
+Number density, temperature and drift                       
+ 1.0000E+06
+ 2.0000E+00
+ 0.0000E+00
+
+maxwellian      form of component  2
+Number density, temperature and drift                       
+ 1.0000E+05
+ 1.0000E+00
+ 2.5000E+06
+
+ 6.000          mvth: multiple of thermal speed for vcut
+ 0.800          cf: courant factor
+ 8.4772E-06     enoise: Initial e-field perturbation amplitude
+
+ PLASMA DIAGNOSTICS
+ 8.3877E+05     ae: Electron thermal speed (main bulk component)
+ 0.0000E+00     ai: Ion thermal speed (main bulk component)
+ 5.9168E+04     wpe: Electron plasma frequency
+ 1.3808E+03     wpi: Ion plasma frequency
+    10.0239     debye: Debye length (using electron temperature)
+ 1.3841E+04     cs: Ion acoustic speed
+
+ INFORMATION ABOUT UNSTABLE WAVES
+ 1.2765E-03     kmin: The smallest value of unstable k
+ 4.9511E-02     kmax: The largest value of unstable k
+ 1.2690E+02     lmin: The shortest wavelength
+ 2.4611E+03     lmax: The longest wavelength
+The length of the box is such that it can hold the longest
+wavelength
+ 1.6520E+06     vphmin: The phase velocity at kmin
+ 2.3188E+06     vphmax: The phase velocity at kmax
+ 9.0681E+03     maxgamma: The maximum value of gamma
+
+ GRID DIMENSIONS
+ 2.4611E+03     Lx: box size in x, in m
+ 7.5347E+06     vcute: box size in vx for electrons, in m/s
+    10.0239     dx: stepsize in x, in m
+ 6.6678E+04     dve: stepsize in vx for electrons, in m/s
+ 1.1028E-08     dt: timestep, in s
+   246          nx: number of spatial grid points
+   113          envx: number of ve points
+ 100000         ntmax: number of timesteps
+ 6.5249E+01     phystime: total simulation time in 1/wpe
+ 100000
+ Run has been completed successfully

@@ -1,0 +1,19 @@
+2                       ncomps: number of plasma components
+
+1                       species: 1=electron, 2=proton
+maxwellian		form: form of distribution function 1
+1.0e+06                 nden: number density (m^-3)
+2.0                     temp: temperature (eV)
+0.0e+00		        drift: drift velocity (m/s)
+
+1                       species: 1=electron, 2=proton
+maxwellian		form: form of distribution function 2
+1.0e+05                 nden: number density (m^-3)
+1.0                     temp: temperature (eV)
+2.5e+06		        drift: drift velocity (m/s)
+
+6.0			mvth: multiple of largest thermal speed for vcut
+0.8			cf: Courant Factor
+100000			ntmax: max no. of timesteps
+10000			fwrite: how often f is saved
+1000			ewrite: how often e is saved
