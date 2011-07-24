@@ -1,7 +1,7 @@
 CC=gcc
 DIM=1D
 TARGET=em$(DIM)3VVlasov
-OPTS=-O3 -fopenmp -D_HYBRID -D_$(DIM) -D_1POP -o $(TARGET) 
+OPTS=-O3 -fopenmp -D_HYBRID -D_AB4 -D_$(DIM) -D_1POP -o $(TARGET) 
 LIBS=-L/usr/local/lib/
 INCL=-I/usr/local/include/ 
 LINK=-lfftw3  -lm
