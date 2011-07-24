@@ -1,0 +1,896 @@
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <complex.h>
+#include <fftw3.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+#define PI 3.141592654
+
+double xmin, xmax, dx, vmaxiinvt, vmaxeinvt, vxmini, vxmaxi, vxmine, vxmaxe;
+double *x, *vxi, *vxe, *rhoi, *rhoe, *rho, *jx, *jxi, *jxe, *oldEx, *Ex, *Exp;
+double *fi, *fe, *ti, *te, Ethi, Ethe, Eki, Eke, Ees, Etot, Ee, Ei, dvi, dve;
+double t, dt, psi0, dumpwci, histwci, avewci, endwci, ions, electrons, fm;
+double stepx, stepz, stepvi12, stepve12, QMi, QMe, tc2, tcx2, tcz2, fim, fem;
+int dumpstep, swapstep, step, histstep, endstep, xbound, setup, trigger, k;
+int tres, maxx, maxz, nx, nvi, nve, ni, ne, i, ir, ix, iv, ik, probli, proble;
+double *Vxi, *Vxe, dVi, dVe, *df1r, *df1i;
+
+double n0, Mi, Me, Ti, Te, Tb, Ci, Ce, c, wpi, wpe, lD, lDe, L, v_thi, v_the, w;
+double factor1, factor2, factor3, densi, dense, uix, uex, nb, len, vmax, E0, Et;
+double udi, ude, v_s, lambda, densb, *cij, *sij, *th, *delta;
+
+FILE *save, *smax, *saves, *smaxs, *sprob;
+FILE *srhoi, *srhoe, *srho, *sfi, *sfe, *sjxi, *sjxe, *sjx, *sEx;
+
+double complex *df1, *df2, *dfdx, *dfdv, *df2r, *df2i, *fb;
+double complex *Fi, *Fe, *oldFi, *oldFe, *Fn,  *rhok, *Exk, coef;
+fftw_plan trans1, trans2, transb1, transb2, dx1, dx2, dx1r, dx1i, dx2r, dx2i;
+
+double myrand(double limit){
+	double random;
+	random=limit*rand()/RAND_MAX;
+	return random;
+}
+double Noise(double limit){
+	double Grandom;
+	Grandom=(myrand(limit)+myrand(limit)+myrand(limit)+myrand(limit)
+   	+myrand(limit))/2.5-limit;
+	return Grandom;
+}
+#if defined(_OPENMP)
+double zeit(void){
+ 	static double tima=0.;
+	double tim, t=0.;
+   tim=(double)omp_get_wtime(); t=tim-tima; tima=tim;
+  	return (t);
+}
+#else
+double zeit(void){
+  static double tima=0.;
+  double tim, t;
+  tim=(double)clock()/CLOCKS_PER_SEC; t=tim-tima; tima=tim;
+  return (t);
+}
+#endif
+void dumpfield(FILE *streamw, double *field){
+    int i;
+    fprintf(streamw,"\n\n");
+    for(i=0;i<nx;i++){fprintf(streamw,"%.12e \n ", field[i]);}
+    fclose(streamw);
+}
+void dumpfc(FILE *streamw, fftw_complex *f, int size){
+    int i;
+    fprintf(streamw,"\n\n");
+    for(i=0;i<size;i++){fprintf(streamw,"%le \n ", creal(f[i]));}
+    fprintf(streamw,"\n\n");
+    for(i=0;i<size;i++){fprintf(streamw,"%le \n ", cimag(f[i]));}
+}
+double max(double *field){
+    double help=0.;
+    int i;
+    for(i=0;i<nx;i++){if(fabs(field[i])>help){help=fabs(field[i]);}}
+    return(help);
+}
+double mittel(double *field){
+    double help=0.;
+    int i=0;
+	 #pragma omp parallel for private(i) reduction(+: help)
+    for(i=0;i<nx;i++){help+=fabs(field[i]);}
+    return(help/nx);
+}
+double maxsign(double *field){
+    double h=0., h1=0.;
+    int i;
+    for(i=0;i<nx;i++){if(fabs(field[i])>h){h=fabs(field[i]);h1=field[i];}}
+    return(h1);
+}
+double mittelsign(double *field){
+    double help=0.;
+    int i=0;
+	 #pragma omp parallel for private(i) reduction(+: help)
+    for(i=0;i<nx;i++){help+=field[i];}
+    return(help/nx);
+}
+
+void history(double *field){
+	double average, averagesign;
+   average=mittel(field); averagesign=mittelsign(field);
+   fprintf(save,"\t %.12e", average); fprintf(saves,"\t %.12e", averagesign);
+}
+
+void printparam( void ){
+	FILE  *plasmastream;
+	int iout;
+
+  printf("\n\n Simulation parameters are written to plasma.dat... \n");
+  for(iout=0;iout<2;iout++){
+    if(iout==1){
+    	plasmastream = fopen("plasma.dat","w");
+    }
+    if(iout==0){plasmastream=stdout;}
+    fprintf(plasmastream,"\n omega_pi (rad/sec)\n\t\t\t %1.3e",wpi);
+    fprintf(plasmastream,"\n omega_pe (rad/sec)\n\t\t\t %1.3e",wpe);
+    fprintf(plasmastream,"\n v_thi (cm/sec)\n\t\t\t %1.3e",v_thi);
+    fprintf(plasmastream,"\n v_the (cm/sec)\n\t\t\t %1.3e",v_the);
+    fprintf(plasmastream,"\n v_s (cm/sec)\n\t\t\t %1.3e",v_s);
+    fprintf(plasmastream,"\n lambda_i (cm)\n\t\t\t %1.3e",L);
+    fprintf(plasmastream,"\n l_Debye_i (cm)\n\t\t\t %1.3e",lD);
+    fprintf(plasmastream,"\n l_Debye_e (cm)\n\t\t\t %1.3e",lDe);
+    fprintf(plasmastream,"\n dt (sec)\n\t\t\t %1.3e",dt);
+    fprintf(plasmastream,"\n dx (cm)\n\t\t\t %1.3e",dx);
+    fprintf(plasmastream,"\n dvi (cm/sec)\n\t\t\t %1.3e",dvi);
+    fprintf(plasmastream,"\n dve (cm/sec)\n\t\t\t %1.3e",dve);
+    fprintf(plasmastream,"\n dumpstep \n\t\t\t %i",dumpstep);
+    fprintf(plasmastream,"\n endstep \n\t\t\t %i",endstep);
+    fprintf(plasmastream,"\n histstep \n\t\t\t %i",histstep);
+    fprintf(plasmastream,"\n swapstep \n\t\t\t %i",swapstep);
+    fprintf(plasmastream,"\n E0 \n\t\t\t %1.3e",E0);
+    fprintf(plasmastream,"\n Et \n\t\t\t %1.3e",Et);
+	if(iout==1){fclose(plasmastream);}
+  }
+printf("\n");
+}
+
+void dumpdist(void){
+	#pragma omp parallel sections
+   {
+	#pragma omp section
+   {
+    sfi=fopen("fi.dat","a+b"); dumpfc(sfi,Fi,ni); fclose(sfi);
+   }
+	#pragma omp section
+   {
+    sfe=fopen("fe.dat","a+b"); dumpfc(sfe,Fe,ne); fclose(sfe);
+   }
+   }
+}
+
+void dumpdata(void){
+	#pragma omp parallel sections
+   {
+	#pragma omp section
+   {
+    srhoi=fopen("rhoi.dat","a+b"); dumpfield(srhoi,rhoi);
+   }
+	#pragma omp section
+   {
+    srhoe=fopen("rhoe.dat","a+b"); dumpfield(srhoe,rhoe);
+   }
+	#pragma omp section
+   {
+    srho=fopen("rho.dat","a+b"); dumpfield(srho,rho);
+   }
+	#pragma omp section
+   {
+    sjxi=fopen("jxi.dat","a+b"); dumpfield(sjxi,jxi);
+   }
+	#pragma omp section
+   {
+    sjxe=fopen("jxe.dat","a+b"); dumpfield(sjxe,jxe);
+   }
+	#pragma omp section
+   {
+    sjx=fopen("jx.dat","a+b"); dumpfield(sjx,jx);
+   }
+	#pragma omp section
+   {
+    sEx=fopen("Ex.dat","a+b"); dumpfield(sEx,Ex);
+   }
+   }
+}
+
+void histdata(void){
+	save=fopen("timeave.dat","a+b"); fprintf(save,"\n %g ",t);
+   //smax=fopen("timemax.dat","a+b"); fprintf(smax,"\n %g ",t);
+   saves = fopen("timeavesign.dat","a+b"); fprintf(saves,"\n %g ",t);
+   //smaxs = fopen("timemaxsign.dat","a+b"); fprintf(smaxs,"\n %g ",t);
+
+	history(rhoi); history(rhoe); history(rho); history(jxi); history(jxe);
+	history(Ex); history(ti); history(te);
+
+   fprintf(save,"\t %le", Ethi); fprintf(save,"\t %le", Ethe);
+   fprintf(save,"\t %le", Eki); fprintf(save,"\t %le", Eke);
+   fprintf(save,"\t %le", Ees); fprintf(save,"\t %le", Etot);
+
+   fclose(save); fclose(saves); //fclose(smax); fclose(smaxs);
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// INTEGRATION OF MOMENTS //////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void moments(void){
+double hrhoi, hrhoe, hjxi, hjxe, lfi, lfe;
+long double r=0.;
+#pragma omp parallel for private(i,ix,iv,lfi,lfe,hrhoi,hrhoe,hjxi,hjxe) reduction(+:r)
+for(ix=0;ix<nx;ix++){
+	 hrhoi=hrhoe=hjxi=hjxe=0.;
+    for(iv=0;iv<nvi;iv++){i=nvi*ix+iv; lfi=fi[i]; hrhoi+=lfi; hjxi+=vxi[iv]*lfi;}
+    for(iv=0;iv<nve;iv++){i=nve*ix+iv; lfe=fe[i]; hrhoe+=lfe; hjxe+=vxe[iv]*lfe;}
+    rhoi[ix]=Ci*dvi*hrhoi; rhoe[ix]=Ce*dve*hrhoe; rho[ix]=rhoi[ix]+rhoe[ix];
+    jxi[ix]=Ci*dvi*hjxi; jxe[ix]=Ce*dve*hjxe; jx[ix]=jxi[ix]+jxe[ix];
+    r+=rho[ix];
+}
+r=(long double) r/nx;   //compensate the net charge
+for(ix=0;ix<nx;ix++){rho[ix]=rho[ix]-r;}
+}
+
+void moments1(void){
+	for(ix=0;ix<nx;ix++){
+    	rhoi[ix]=Ci*creal(Fi[ix*nvi]); rhoe[ix]=Ce*creal(Fe[ix*nve]);
+      rho[ix]=rhoi[ix]+rhoe[ix];
+      jxi[ix]=Ci*(cimag(45.*Fi[ix*nvi+1]-9.*Fi[ix*nvi+2]+Fi[ix*nvi+3]))/(30.*dVi);
+      jxe[ix]=Ce*(cimag(45.*Fe[ix*nve+1]-9.*Fe[ix*nve+2]+Fe[ix*nve+3]))/(30.*dVe);
+      jx[ix]=jxi[ix]+jxe[ix];
+	}
+}
+////////////////////////////////////////////////////////////////////////////////
+///////////////////// INTEGRATION OF 2-nd ORDER MOMENTS ////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void moments2(void){
+double hti, hte, hi, he, ui, ue, lfi, lfe, a1, a2, ci1, ce1, ci2, ce2;
+Ethi=Ethe=Ei=Ee=0.;
+ci1=.5*Mi*dvi; ce1=.5*Me*dve; ci2=Mi*Ci*dvi; ce2=Me*Ce*dve;
+#pragma omp parallel for private(ix,iv,lfi,lfe,hti,hte,hi,he,ui,ue,a1,a2) reduction(+:Ethi,Ethe,Ei,Ee)
+for(ix=0;ix<nx;ix++){hti=hte=hi=he=0.; a1=1./rhoi[ix]; a2=1./rhoe[ix];
+	ui=jxi[ix]*a1; ue=jxe[ix]*a2;
+    for(iv=0;iv<nvi;iv++){lfi=fi[nvi*ix+iv];
+        hti+=(vxi[iv]-ui)*(vxi[iv]-ui)*lfi; hi+=vxi[iv]*vxi[iv]*lfi;}
+    for(iv=0;iv<nve;iv++){lfe=fe[nve*ix+iv];
+        hte+=(vxe[iv]-ue)*(vxe[iv]-ue)*lfe; he+=vxe[iv]*vxe[iv]*lfe;}
+    ti[ix]=ci2*hti*a1; te[ix]=ce2*hte*a2;
+    Ethi+=hti; Ethe+=hte; Ei+=hi; Ee+=he;
+}
+Ei=Ei*ci1; Ethi=Ethi*ci1; Ee=Ee*ce1; Ethe=Ethe*ce1;
+Eki=Ei-Ethi; Eke=Ee-Ethe; Etot=Ei+Ee+Ees;
+}
+void moments3(void){
+Ei=Ee=Ethi=Ethe=0.;
+for(ix=0;ix<nx;ix++){
+    /*ti[ix]=-Mi*(creal(Fi[ix*nvi+4]-9.*Fi[ix*nvi+3]+44.*Fi[ix*nvi+2]
+    	+9.*Fi[ix*nvi+1]-45.*Fi[ix*nvi]))/(60.*dVi*dVi);
+    te[ix]=-Me*(creal(Fe[ix*nve+4]-9.*Fe[ix*nve+3]+44.*Fe[ix*nve+2]
+    	+9.*Fe[ix*nve+1]-45.*Fe[ix*nve]))/(60.*dVe*dVe);*/
+    ti[ix]=-Mi*(creal(-15.*Fi[ix*nvi]+16.*Fi[ix*nvi+1]-Fi[ix*nvi+2]))/(6.*dVi*dVi);
+    te[ix]=-Me*(creal(-15.*Fe[ix*nve]+16.*Fe[ix*nve+1]-Fe[ix*nve+2]))/(6.*dVe*dVe);
+    /*ti[ix]=-Mi*(creal(-73767.*Fi[ix*nvi]+84000.*Fi[ix*nvi+1]-12000.*Fi[ix*nvi+2]
+    +2000.*Fi[ix*nvi+3]-250.*Fi[ix*nvi+4]+8.*Fi[ix*nvi+4]))/(25200.*dVi*dVi);
+    te[ix]=-Me*(creal(-73767.*Fe[ix*nve]+84000.*Fe[ix*nve+1]-12000.*Fe[ix*nve+2]
+    +2000.*Fe[ix*nve+3]-250.*Fe[ix*nve+4]+8.*Fe[ix*nve+4]))/(25200.*dVe*dVe);*/
+    Ei+=.5*ti[ix]; Ee+=.5*te[ix];
+    ti[ix]-=.5*Mi*jxi[ix]*jxi[ix]/(rhoi[ix]*rhoi[ix]);
+    te[ix]-=.5*Me*jxe[ix]*jxe[ix]/(rhoe[ix]*rhoe[ix]);
+    Ethi+=.5*ti[ix]; Ethe+=.5*te[ix];
+}
+Eki=Ei-Ethi; Eke=Ee-Ethe; Etot=Ei+Ee+Ees;
+}
+////////////////////////////////////////////////////////////////////////////////
+///////////////////// Calculation of the electric fields ///////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void fields(void){
+	int k;
+   double *phi, Eave=0.;
+	fftw_execute(trans1);
+   for(i=1;i<nx;i++){Exk[i]=coef*rhok[i]/i;}
+   Exk[0]=0.;
+	fftw_execute(trans2);
+
+   switch(trigger){
+   case 0:{ // localized continuous perturbation //
+      if(step*dt*wpi<=10.){
+   	for(i=0;i<nx;i++){
+      Exp[i]=Et*exp(.02*(step*dt*wpi-10.))*sin(w*step*dt*wpi)*exp(-(i-nx/8)*(i-nx/8)/(len*len));}
+      }
+      if(step*dt*wpi>10.){
+   	for(i=0;i<nx;i++){Exp[i]=Et*sin(w*step*dt*wpi)*exp(-(i-nx/8)*(i-nx/8)/(len*len));}
+      }
+   }break;
+   case 2:{ // initial random thermal noise //
+      if(step==0){
+      	phi= (double *) calloc(nx/4, sizeof(double));
+   		for(k=1;k<nx/16;k++){phi[k]=Noise(PI);}// printf("\n %1.3e", phi[k]);}
+   		for(i=0;i<nx;i++){Exp[i]=0.;}
+   		for(i=0;i<nx;i++){
+      		for(k=1;k<nx/16;k++){Exp[i]+=Et*sin((x[i]+phi[k]*xmax)*PI*k/xmax+phi[k]);}
+            Eave+=Exp[i];
+      	}
+      }
+      if(step>0){for(i=0;i<nx;i++){Exp[i]=0.;} Eave=0.;}
+   }
+   }
+   Eave=Eave/nx;
+   for(i=0;i<nx;i++){Ex[i]=Ex[i]+Exp[i]-Eave;}
+   Ees=0.; for(i=0;i<nx;i++){Ees+=Ex[i]*Ex[i];} Ees=Ees/(8.*PI);
+}
+////////////////////////////////////////////////////////////////////////////////
+//////////////////// VLASOV SOLVER IN SPACE ////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void vlasov(double complex *fnew,  double complex *f,  double complex *fold, double *V, double QM, double dV, int nv){
+
+	double complex coef1, coef2;
+	//coef1=.5*dt*I/(dx*dV); coef2=2.*dt*I*QM;
+	coef1=.25*dt*I/(dx*dV); coef2=dt*I*QM;
+
+
+	/*for(iv=0;iv<nv;iv++){
+   	for(ix=0;ix<nx;ix++){df1r[ix]=creal(f[ix*nv+iv]); df1i[ix]=cimag(f[ix*nv+iv]);}
+      fftw_execute(dx1r); fftw_execute(dx1i);
+      for(ix=0;ix<nx;ix++){df2r[ix]=2.*PI*I*ix*df2r[ix]/(nx*nx); df2i[ix]=2.*PI*I*ix*df2i[ix]/(nx*nx); }
+      fftw_execute(dx2r); fftw_execute(dx2i);
+   	for(ix=0;ix<nx;ix++){dfdx[ix*nv+iv]=df1r[ix]+I*df1i[ix];}
+   }*/
+
+
+
+
+
+
+   //differentiate f along x
+#pragma omp parallel for private(ix,iv,ir,i)
+	for(ix=2;ix<nx-2;ix++){ir=ix*nv;
+   	for(iv=0;iv<nv;iv++){i=ir+iv;
+   	dfdx[i]=(-f[i+2*nv]+8.*f[i+nv]-8.*f[i-nv]+f[i-2*nv])/12.;}
+   }
+   for(iv=0;iv<nv;iv++){
+   	dfdx[iv]=(-f[iv+2*nv]+8.*f[iv+nv]-8.*f[(nx-1)*nv+iv]+f[(nx-2)*nv+iv])/12.;}
+   for(iv=0;iv<nv;iv++){
+   	dfdx[iv+nv]=(-f[iv+3*nv]+8.*f[iv+2*nv]-8.*f[iv]+f[(nx-1)*nv+iv])/12.;}
+   for(iv=0;iv<nv;iv++){
+   	dfdx[(nx-2)*nv+iv]=(-f[iv]+8.*f[(nx-1)*nv+iv]-8.*f[(nx-3)*nv+iv]
+      	+f[(nx-4)*nv+iv])/12.;}
+   for(iv=0;iv<nv;iv++){
+   	dfdx[(nx-1)*nv+iv]=(-f[iv+nv]+8.*f[iv]-8.*f[(nx-2)*nv+iv]
+      	+f[(nx-3)*nv+iv])/12.;}
+   
+
+
+   //differentiate df/dx along V
+	/*#pragma omp parallel for private(ix,iv,ir,i)
+   for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=0;iv<nv;iv++){i=ir+iv;
+         //if(iv==0){df=I*cimag(8.*dfdx[i+1]-dfdx[i+2])/(6.);}
+         if(iv==0){dfdv[i]=I*cimag(45.*dfdx[i+1]-9.*dfdx[i+2]+dfdx[i+3])/30.;}
+         //if(iv==1){df=(-dfdx[i+2]+8.*dfdx[i+1]-8.*dfdx[i-1]+creal(dfdx[i])-I*cimag(dfdx[i]))/(12.);}
+         if(iv==1){dfdv[i]=(dfdx[i+3]-9.*dfdx[i+2]+45.*dfdx[i+1]-45.*dfdx[i-1]
+         	+creal(9.*dfdx[i]-dfdx[i+1])-I*cimag(9.*dfdx[i]-dfdx[i+1]))/(60.);}
+         //if(iv==nv-1){df=(3.*dfdx[i]-4.*dfdx[i-1]+dfdx[i-2])/(2.);}
+         //if(iv==nv-2){df=(3.*dfdx[i]-4.*dfdx[i-1]+dfdx[i-2])/(2.);}
+
+
+
+         if(iv==nv-2){dfdv[i]=(11.*dfdx[i]-18.*dfdx[i-1]+9.*dfdx[i-2]-2.*dfdx[i-3])/(6.);}
+         if(iv==nv-1){dfdv[i]=(11.*dfdx[i]-18.*dfdx[i-1]+9.*dfdx[i-2]-2.*dfdx[i-3])/(6.);}
+
+
+
+         //if(iv==nv-1){dfdv[i]=0.;}
+         if(iv>1&&iv<nv-2){
+         	dfdv[i]=(8.*dfdx[i+1]-dfdx[i+2]-8.*dfdx[i-1]+dfdx[i-2])/(12.);}
+   	}
+	}*/
+
+#pragma omp parallel for private(ix,iv,ir,i)
+	for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=0;iv<nv;iv++){i=ir+iv;
+         //if(iv==0){df=I*cimag(8.*dfdx[i+1]-dfdx[i+2])/(6.);}
+         if(iv==0){dfdv[i]=I*cimag(45.*dfdx[i+1]-9.*dfdx[i+2]+dfdx[i+3])/30.;}
+         //if(iv==1){df=(-dfdx[i+2]+8.*dfdx[i+1]-8.*dfdx[i-1]+creal(dfdx[i])-I*cimag(dfdx[i]))/(12.);}
+         if(iv==1){dfdv[i]=(dfdx[i+3]-9.*dfdx[i+2]+45.*dfdx[i+1]-45.*dfdx[i-1]
+         	+creal(9.*dfdx[i]-dfdx[i+1])-I*cimag(9.*dfdx[i]-dfdx[i+1]))/(60.);}
+         if(iv==nv-5){dfdv[i]=(.00249870649542*dfdx[i+4]-.00546392445304455*dfdx[i+3]
+         	-.08702480561901931544*dfdx[i+2]+.6860976704313835*dfdx[i+1]
+         -.01898553048094366198*dfdx[i]-.65989534456350507285*dfdx[i-1]+.082773228189705424*dfdx[i-2]);}
+         if(iv==nv-4){dfdv[i]=(-.019051206094488501*dfdx[i+3]-.02693110420073261*dfdx[i+2]
+         	+.633860292039252*dfdx[i+1]-.0517726709186493664*dfdx[i]
+         -.59276460604896*dfdx[i-1]+.05436881426984067*dfdx[i-2]+.002290480954138325*dfdx[i-3]);}
+         if(iv==nv-3){dfdv[i]=(-.11124996667625*dfdx[i+2]+.7861531094327*dfdx[i+1]
+         	-.19877943763527*dfdx[i]-.508080676928351*dfdx[i-1]
+         	+.0241379624126563*dfdx[i-2]+.0078199093944392671*dfdx[i-3]);}
+         if(iv==nv-2){dfdv[i]=(.389422071485311*dfdx[i+1]+.269537639034869*dfdx[i]
+         	-.639037937659262*dfdx[i-1]-.0943327360845463774*dfdx[i-2]
+            +.080518371580844513358*dfdx[i-3]-.0061074083572165*dfdx[i-4]);}
+         if(iv==nv-1){dfdv[i]=(11.*dfdx[i]-18.*dfdx[i-1]+9.*dfdx[i-2]-2.*dfdx[i-3])/(6.);}
+         //if(iv==nv-1){df=0.;}
+         else if(iv>1&&iv<nv-5){
+         	dfdv[i]=(8.*dfdx[i+1]-dfdx[i+2]-8.*dfdx[i-1]+dfdx[i-2])/(12.);}
+      	//dfdv[i]=df;
+   	}
+	}
+
+#pragma omp parallel for private(ix,iv,ir,i)
+	for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=0;iv<nv;iv++){i=ir+iv;
+      	fnew[i]=fold[i]+4.*coef1*dfdv[i]-coef2*Ex[ix]*V[iv]*f[i];
+      }
+   }
+
+//for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=2.*fnew[i-1]-fnew[i-2];}
+
+for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=fnew[i-1]+(11.*fnew[i-1]-18.*fnew[i-2]+9.*fnew[i-3]-2.*fnew[i-4])/6.;}
+//for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=fold[i]+.5*(4.*coef1*dfdv[i]-coef2*Ex[ix]*V[nv-1]*f[i]);}
+//for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=fold[i]+4.*coef1*dfdv[i-1]-coef2*Ex[ix]*V[nv-1]*f[i-1];}
+//for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=0.;}
+
+/*#pragma omp parallel for private(ix,iv,ir,i)
+	for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=0;iv<nv-30;iv++){i=ir+iv;
+      	fnew[i]=fold[i]+4.*coef1*dfdv[i]-coef2*Ex[ix]*V[iv]*f[i];
+      }
+      for(iv=nv-30;iv<nv;iv++){i=ir+iv;
+      	fnew[i]=fold[i]+4.*(coef1*dfdv[i]-coef2*Ex[ix]*V[iv]*f[i])*exp(-.015*(nv-30-iv)*(nv-30-iv));
+      }
+
+   }*/
+
+//boundary conditions at Vmax
+//set Dirichlet boundary conditions
+//for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=0.;}
+
+//masking method to damp oscillations at Vmax
+/*#pragma omp parallel for private(ix,iv,ir,i)
+	for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=nv-20;iv<nv;iv++){i=ir+iv;
+      	fnew[i]=fnew[i]*exp(-.015*(nv-20-iv)*(nv-20-iv));
+      }
+   }*/
+
+	/*for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=nv-30;iv<nv;iv++){i=ir+iv;
+      	fnew[i]=fnew[ir+nv-30]*exp(-(nv-30-iv)*(nv-30-iv)/60.);
+      }
+   }*/
+
+
+
+
+
+   if(QM<0.){
+	for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=nv-30;iv<nv;iv++){i=ir+iv;
+      	fnew[i]=fnew[i]*exp(-((nv-30-iv)*(nv-30-iv)*t)/10000.);
+      	//fnew[i]=fnew[i]*exp(-((nv-20-iv)*(nv-20-iv))/60.);
+      }
+   }
+   }
+   else{
+	for(ix=0;ix<nx;ix++){ir=ix*nv;
+   	for(iv=nv-30;iv<nv;iv++){i=ir+iv;
+      	fnew[i]=fnew[i]*exp(-((nv-30-iv)*(nv-30-iv)*t)/1000000.);
+      	//fnew[i]=fnew[i]*exp(-((nv-20-iv)*(nv-20-iv))/600.);
+      }
+   }
+   }
+
+
+
+
+//reflections suppression at Vmax  (iv=nv-1)
+/*for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; df2[ix]=0.;
+	df1[ix]=4.*coef1*dfdv[i]-coef2*Ex[ix]*V[nv-1]*f[i];
+	//df1[ix]=(4.*coef1*dfdv[i]-coef2*Ex[ix]*V[nv-1]*f[i])/coef2;
+}
+for(ik=0;ik<nx;ik++){
+	for(ix=0;ix<nx;ix++){i=ix*nx+ik; df2[ik]=df2[ik]+df1[ix]*(cij[i]-I*sij[i]);}
+}
+//for(ix=0;ix<nx/2;ix++){df1[ix]=0.; df2[ix]=0.;}
+//for(ix=nx/2;ix<nx;ix++){df1[ix]=0.; df2[ix]=(double complex) .5*df2[ix]/(nx);}
+//for(ix=0;ix<nx;ix++){df1[ix]=0.; df2[ix]=(double complex) .5*df2[ix]/(nx);}
+for(ix=0;ix<nx;ix++){df1[ix]=0.; df2[ix]=(double complex) .5*df2[ix]/nx;}
+//for(ix=nx/2+10;ix<nx;ix++){df2[ix]=0.;}
+for(ix=0;ix<nx/2;ix++){df2[ix]=0.;}
+for(ix=0;ix<nx;ix++){
+	for(ik=0;ik<nx;ik++){i=ix*nx+ik; df1[ix]=df1[ix]-df2[ik]*(cij[i]+I*sij[i]);}
+}
+for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=fold[i]+df1[ix];}
+*/
+
+/*for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; df2r[ix]=df2i[ix]=0.;
+	//df1[ix]=4.*coef1*dfdv[i]-coef2*Ex[ix]*V[nv-1]*f[i];
+	df1r[ix]=creal(4.*coef1*dfdv[i]-coef2*Ex[ix]*V[nv-1]*f[i])/(2.*dt);
+	df1i[ix]=cimag(4.*coef1*dfdv[i]-coef2*Ex[ix]*V[nv-1]*f[i])/(2.*dt);
+}
+for(ik=0;ik<nx;ik++){
+	for(ix=0;ix<nx;ix++){i=ix*nx+ik;
+   df2r[ik]=df2r[ik]+df1r[ix]*(cij[i]-I*sij[i]);
+   df2i[ik]=df2i[ik]+df1i[ix]*(cij[i]-I*sij[i]);}
+}
+for(ix=0;ix<nx;ix++){df1r[ix]=df1i[ix]=0.;
+	df2r[ix]=(double complex) .5*df2r[ix]/(nx*PI);
+	df2i[ix]=(double complex) .5*df2i[ix]/(nx*PI);}
+//for(ix=nx/2+10;ix<nx;ix++){df2[ix]=0.;}
+for(ix=0;ix<=nx/2;ix++){df2r[ix]=df2i[ix]=0.;}
+for(ix=0;ix<nx;ix++){
+	for(ik=0;ik<nx;ik++){i=ix*nx+ik;
+   df1r[ix]=df1r[ix]+df2r[ik]*(cij[i]+I*sij[i]);
+   df1i[ix]=df1i[ix]+df2i[ik]*(cij[i]+I*sij[i]);}
+}
+for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=fold[i]+2.*dt*(df1r[ix]+I*df1i[ix]);}
+*/
+
+
+//for(ix=0;ix<nx;ix++){i=ix*nv+nv-1; fnew[i]=2.*fnew[i-1]-fnew[i-2];}
+
+
+}
+
+void integrate(){
+   vlasov(Fn, Fi, oldFi, Vxi, QMi, dVi, nvi);
+	for(i=0;i<ni;i++){oldFi[i]=Fi[i]; Fi[i]=Fn[i];}
+   vlasov(Fn, Fe, oldFe, Vxe, QMe, dVe, nve);
+	for(i=0;i<ne;i++){oldFe[i]=Fe[i]; Fe[i]=Fn[i];}// Fi[i]=dfdx[i];}
+	//for(i=0;i<nx;i++){jxe[i]=creal(dfdx[i*nve]); jxi[i]=cimag(dfdx[i*nve]);}
+	//for(i=0;i<nx;i++){jxe[i]=creal(df1[i]); jxi[i]=cimag(df1[i]);}
+	//for(i=0;i<nx;i++){jxe[i]=creal(df2[i]); jxi[i]=cimag(df2[i]);}
+	//for(i=0;i<nx;i++){jxe[i]=creal(dfdv[i*nve+nve-1]); jxi[i]=cimag(dfdv[i*nve+nve-1]);}
+	//for(i=0;i<nx;i++){jxe[i]=creal(dfdx[i*nve+nve-1]); jxi[i]=cimag(dfdx[i*nve+nve-1]);}
+	//for(i=0;i<nx;i++){jxe[i]=df1r[i]; jxi[i]=df1i[i];}
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////// MAIN FUNCTION ///////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+main(void){
+	FILE  *streamw, *sinit;
+	double mratio, tratio;
+	int iout;
+	char tag[20];
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// INITIAL PARAMETERS READING //////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+if((sinit = fopen("param.init","r")) == NULL){
+	printf("\n ERROR: can't find param.init \n"); exit(1);}
+/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+fscanf(sinit,"%s %i",&tag[0],&maxx);
+fscanf(sinit,"%s %lf",&tag[0],&vmaxiinvt);
+fscanf(sinit,"%s %lf",&tag[0],&udi);
+fscanf(sinit,"%s %lf",&tag[0],&vmaxeinvt);
+fscanf(sinit,"%s %lf",&tag[0],&ude);
+fscanf(sinit,"%s %lf",&tag[0],&endwci);
+/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+fscanf(sinit,"%s %i",&tag[0],&nx);
+fscanf(sinit,"%s %i",&tag[0],&nvi);
+fscanf(sinit,"%s %i",&tag[0],&nve);
+fscanf(sinit,"%s %i",&tag[0],&tres);
+/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+fscanf(sinit,"%s %lf",&tag[0],&Ci);
+fscanf(sinit,"%s %lf",&tag[0],&c);
+fscanf(sinit,"%s %lf",&tag[0],&n0);
+fscanf(sinit,"%s %lf",&tag[0],&Mi);
+fscanf(sinit,"%s %lf",&tag[0],&mratio);
+fscanf(sinit,"%s %lf",&tag[0],&Ti);
+fscanf(sinit,"%s %lf",&tag[0],&tratio);
+/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+fscanf(sinit,"%s %lf",&tag[0],&dumpwci);
+fscanf(sinit,"%s %lf",&tag[0],&histwci);
+fscanf(sinit,"%s %lf",&tag[0],&avewci);
+/*>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+fscanf(sinit,"%s %i",&tag[0],&xbound);
+fscanf(sinit,"%s %lf",&tag[0],&nb);
+fscanf(sinit,"%s %lf",&tag[0],&psi0);
+fscanf(sinit,"%s %i",&tag[0],&setup);
+fscanf(sinit,"%s %i",&tag[0],&trigger);
+fscanf(sinit,"%s %lf",&tag[0],&w);
+fscanf(sinit,"%s %lf",&tag[0],&lambda);
+fscanf(sinit,"%s %lf",&tag[0],&Tb);
+fclose(sinit);
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// PHYSICAL VALUES CALCULATION /////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+Ce=-1.*Ci; Te=Ti/tratio; Me=Mi/mratio;  Tb=Tb*Ti; ni=nx*nvi; ne=nx*nve;
+
+wpi=sqrt(4.*PI*nb/Mi)*Ci; wpe=sqrt(4.*PI*nb/Me)*Ci;
+
+v_thi=sqrt(Ti/Mi); v_the=sqrt(Te/Me); v_s=sqrt(Te/Mi);
+
+L=c/wpi; lD=sqrt(Ti/4./PI/nb)/Ci; lDe=sqrt(Te/4./PI/nb)/Ci;
+
+E0=Me*v_s*wpe/Ci; Et=sqrt(8.*PI*Te/(lDe*lDe*lDe));
+
+vxmaxi=v_thi*vmaxiinvt; vxmini=-vxmaxi;
+
+vxmaxe=v_the*vmaxeinvt; vxmine=-vxmaxe;
+
+xmax=maxx*lD; xmin=-1.*xmax; dx=(xmax-xmin)/(nx-1); coef=2.*I*dx;
+
+len=10.*lDe/dx/4.; //printf("\n len=%1.2f", len);
+   
+stepx=.5/dx; QMi=Ci/Mi; QMe=Ce/Me; //dt=1./tres/wpe;
+
+dvi=(vxmaxi-vxmini)/(nvi-1); dve=(vxmaxe-vxmine)/(nve-1);
+
+dVi=20./(v_thi*nvi); dVe=30./(v_the*nve);
+//dVi=PI/(dvi*nvi); dVe=PI/(dve*nve);
+//dVi=PI/vxmaxi; dVe=PI/vxmaxe;
+
+dt=.5*dx*dVe; printf("\n dt=%1.3e \t dVi=%1.3e \t dVe=%1.3e", dt, dVi, dVe);
+
+
+dumpstep=(int)(dumpwci/wpi/dt); if(dumpstep < 1){dumpstep=1;}
+endstep=(int)(endwci/wpi/dt); if(endstep < 2){endstep=2;}
+histstep=(int)(histwci/wpi/dt); if(histstep < 1){histstep=1;}
+swapstep=(int)(avewci/wpi/dt); if(swapstep < 1){swapstep=1;}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// DYNAMIC MEMORY ALLOCATION ///////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+fi= (double *) calloc(ni, sizeof(double));
+fe= (double *) calloc(ne, sizeof(double));
+x= (double *) calloc(nx, sizeof(double));
+vxi= (double *) calloc(nvi, sizeof(double));
+vxe= (double *) calloc(nve, sizeof(double));
+Vxi= (double *) calloc(nvi, sizeof(double));
+Vxe= (double *) calloc(nve, sizeof(double));
+rho= (double *) calloc(nx, sizeof(double));
+rhoi= (double *) calloc(nx, sizeof(double));
+rhoe= (double *) calloc(nx, sizeof(double));
+jx= (double *) calloc(nx, sizeof(double));
+jxi= (double *) calloc(nx, sizeof(double));
+jxe= (double *) calloc(nx, sizeof(double));
+Ex= (double *) calloc(nx, sizeof(double));
+Exp= (double *) calloc(nx, sizeof(double));
+ti= (double *) calloc(nx, sizeof(double));
+te= (double *) calloc(nx, sizeof(double));
+cij= (double *) calloc(nx*nx, sizeof(double));
+sij= (double *) calloc(nx*nx, sizeof(double));
+df1r= (double *) calloc(nx, sizeof(double));
+df1i= (double *) calloc(nx, sizeof(double));
+delta= (double *) calloc(nx, sizeof(double));
+
+rhok=(double complex*)fftw_malloc(sizeof(double complex)*nx);
+Exk=(double complex*)fftw_malloc(sizeof(double complex)*nx);
+Fi=(double complex*)fftw_malloc(sizeof(double complex)*ni);
+Fe=(double complex*)fftw_malloc(sizeof(double complex)*ne);
+oldFi=(double complex*)fftw_malloc(sizeof(double complex)*ni);
+oldFe=(double complex*)fftw_malloc(sizeof(double complex)*ne);
+df1=(double complex*)fftw_malloc(sizeof(double complex)*nx);
+df2=(double complex*)fftw_malloc(sizeof(double complex)*nx);
+df2r=(double complex*)fftw_malloc(sizeof(double complex)*nx);
+df2i=(double complex*)fftw_malloc(sizeof(double complex)*nx);
+fb=(double complex*)fftw_malloc(sizeof(double complex)*nx);
+if(nvi<nve){
+	Fn=(double complex*)fftw_malloc(sizeof(double complex)*ne);
+	dfdx=(double complex*)fftw_malloc(sizeof(double complex)*ne);
+	dfdv=(double complex*)fftw_malloc(sizeof(double complex)*ne);
+   }
+else{
+	Fn=(double complex*)fftw_malloc(sizeof(double complex)*ni);
+	dfdx=(double complex*)fftw_malloc(sizeof(double complex)*ni);
+	dfdv=(double complex*)fftw_malloc(sizeof(double complex)*ni);
+   }
+
+#ifdef SGI
+iout=fftw_init_threads();
+fftw_plan_with_nthreads(omp_get_max_threads());
+#endif
+trans1=fftw_plan_dft_r2c_1d(nx,rho,rhok,FFTW_MEASURE);
+trans2=fftw_plan_dft_c2r_1d(nx,Exk,Ex,FFTW_MEASURE);
+dx1=fftw_plan_dft_1d(nx,df1,df2,FFTW_FORWARD,FFTW_MEASURE);
+dx2=fftw_plan_dft_1d(nx,df2,df1,FFTW_BACKWARD,FFTW_MEASURE);
+
+dx1r=fftw_plan_dft_r2c_1d(nx,df1r,df2r,FFTW_MEASURE);
+dx1i=fftw_plan_dft_r2c_1d(nx,df1i,df2i,FFTW_MEASURE);
+dx2r=fftw_plan_dft_c2r_1d(nx,df2r,df1r,FFTW_MEASURE);
+dx2i=fftw_plan_dft_c2r_1d(nx,df2i,df1i,FFTW_MEASURE);
+
+switch(setup){
+	case 0: uix=uex=0.; break;  //for Langmuir waves
+	case 1: uix=0.; uex=ude*v_the; break;  //for bump-on-tail instability
+	case 2: uix=0.; uex=ude*v_the; break;  //for buneman instability
+	case 3: uix=udi*v_s; uex=ude*v_the; break;  //for ion-acoustic instability
+	case 4: uix=0.; uex=ude*v_the; break;  //for two-stream instability
+	case 5: uix=udi*v_s; uex=ude*v_the;   //for ion beam
+}
+
+for(ix=0;ix<nx;ix++){x[ix]=xmin+ix*dx;}
+if(setup<2){// CENTERING BETWEEN THE BEAM AND THE BACKGROUND
+	for(iv=0;iv<nvi;iv++){vxi[iv]=vxmini+iv*dvi+.5*uix;}
+	for(iv=0;iv<nve;iv++){vxe[iv]=vxmine+iv*dve+.5*uex;}
+}
+else if(setup<4 && setup>1 ){// CENTERING ON DRIFT
+	for(iv=0;iv<nvi;iv++){vxi[iv]=vxmini+iv*dvi+uix;}
+	for(iv=0;iv<nve;iv++){vxe[iv]=vxmine+iv*dve+uex;}
+}
+else if(setup==5){
+	for(iv=0;iv<nvi;iv++){vxi[iv]=vxmini+iv*dvi+.5*uix;}
+	for(iv=0;iv<nve;iv++){vxe[iv]=vxmine+iv*dve+uex;}
+}
+
+for(ix=0;ix<nx;ix++){ir=ix*nx;
+	for(ik=0;ik<nx;ik++){i=ir+ik;
+   	cij[i]=cos(2.*PI*ix*(ik-nx/2.)/nx);
+      sij[i]=sin(2.*PI*ix*(ik-nx/2.)/nx);
+   }
+}
+for(iv=0;iv<nvi;iv++){Vxi[iv]=dVi*iv;}
+for(iv=0;iv<nve;iv++){Vxe[iv]=dVe*iv;}
+
+if(vxi[nvi-1]>vxe[nve-1]){vmax=vxi[nvi-1];}
+else{vmax=vxe[nve-1];}
+
+for(iout=0;iout<2;iout++){
+    if(iout==1){streamw = fopen("param.dat","w");}
+    if(iout==0){streamw=stdout;}
+
+    #if defined(_OPENMP)
+    fprintf(streamw,"\n 1D Fourier Vlasov-code v. 24.05.2006 %i OMP threads \n", omp_get_max_threads());
+    #else
+    fprintf(streamw,"\n 1D Fourier Vlasov-code v. 24.05.2006 \n");
+    #endif
+    switch(setup){
+    	case 0: fprintf(streamw,"\n \t\t Langmuir waves \n"); break;
+    	case 1: fprintf(streamw,"\n \t\t Bump-on-tail instability \n"); break;
+    	case 2: fprintf(streamw,"\n \t\t Buneman/IA instability v_De/v_Te=%1.2f\n",uex/v_the); break;
+    	case 3: fprintf(streamw,"\n \t\t Ion-beam instability v_b/v_s=%1.2f \n",uix/v_s); break;
+    	case 4: fprintf(streamw,"\n \t\t Two-stream instability \n"); break;
+    	case 5: fprintf(streamw,"\n \t\t Ion beam \n");
+    }
+    fprintf(streamw,"\n x/l_Di  = %i  \t  nx  = %i \t  nvi = %i \t  nve = %i", maxx,nx,nvi,nve);
+    fprintf(streamw,"\n M_i   = %1.2e \t  M_e   = %1.2e \t  M_i/M_e = %.1f", Mi,Me,Mi/Me);
+    fprintf(streamw,"\n T_i   = %1.2e \t  T_e   = %1.2e \t  T_i/T_e = %.3f", Ti,Te,Ti/Te);
+    fprintf(streamw,"\n\t nb = %1.2e \t\t\t n0 = %1.2e", nb, n0);
+    fprintf(streamw,"\n\t e = %1.2e \t\t\t  c = %1.2e", Ci, c);
+    fprintf(streamw,"\n\t vxi = %1.2e \t\t  vyi  = %1.2e", vxmini,vxmaxi);
+    fprintf(streamw,"\n\t vxe = %1.2e \t\t  vye  = %1.2e",vxmine,vxmaxe);
+    fprintf(streamw,"\n histstep = %.3f \t  dump   = %.3f  \t  end   = %.3f", histwci,dumpwci,endwci);
+    fprintf(streamw,"\n time resolution = %i \t  swapstep   = %.3f", tres, avewci);
+    if(nvi<nve)fprintf(streamw,"\n Memory = %.2f Mb \n", sizeof(double)*(ni+2.*ne)/(1024.*1024.));
+    if(nvi>=nve)fprintf(streamw,"\n Memory = %.2f Mb \n", sizeof(double)*(ne+2.*ni)/(1024.*1024.));
+	if(iout==1){fclose(streamw);}
+}
+
+factor1=factor2=factor3=0.;
+for(iv=0;iv<nvi;iv++){factor1+=exp(-.5*Mi*vxi[iv]*vxi[iv]/Ti);}
+for(iv=0;iv<nve;iv++){factor2+=exp(-.5*Me*vxe[iv]*vxe[iv]/Te);}
+factor1*=dvi; factor2*=dve;
+if(setup==1){
+	for(iv=0;iv<nve;iv++){factor3+=exp(-.5*Me*vxe[iv]*vxe[iv]/Tb);}
+   factor3*=dve;
+}
+else if(setup==5){
+	for(iv=0;iv<nvi;iv++){factor3+=exp(-.5*Mi*vxi[iv]*vxi[iv]/Tb);}
+   factor3*=dvi;
+}
+
+printf("\n Int[Exp(-Mi/(2Ti)(v^2))dv]= %1.3e numerical \n", factor1);
+printf(" Int[Exp(-Mi/(2Ti)(v^2))dv]= %1.3e analytical", pow((.5*Mi/PI/Ti),-.5));
+printf("\n Int[Exp(-Me/(2Te)(v^2))dv]= %1.3e numerical \n", factor2);
+printf(" Int[Exp(-Me/(2Te)(v^2))dv]= %1.3e analytical", pow((2.*PI*Te/Me),.5));
+
+   // initial random thermal noise //
+   	th= (double *) calloc(nx, sizeof(double));
+      th[0]=0.;
+      for(k=1;k<nx/2;k++){th[k]=Noise(2.*PI);}
+         for(i=0;i<nx;i++){delta[i]=0.;}
+   		for(i=0;i<nx;i++){
+            for(k=0;k<nx/2;k++){delta[i]+=.000001*sin(2.*k*PI*i/(nx)+th[k]);}
+      }
+////////////////////////////////////////////////////////////////////////////////
+////////////////////// fi(x,vx) & fe(x,vx) initialization //////////////////////
+////////////////////////////////////////////////////////////////////////////////
+switch(setup){
+	case 0:{            //Langmuir waves
+	#if defined(_OPENMP)
+	#pragma omp parallel for schedule(static) private(ix,iv,densi,dense)
+	#endif
+	for(ix=0;ix<nx;ix++){ densi=nb/factor1; dense=nb/factor2;
+   	for(iv=0;iv<nvi;iv++){fi[nvi*ix+iv]=densi*(1.+.01*sin(8.*PI*ix/nx))
+      	*exp(-.5*Mi/Ti*vxi[iv]*vxi[iv]);}
+   	for(iv=0;iv<nve;iv++){fe[nve*ix+iv]=dense*(1.+.01*sin(8.*PI*ix/nx))
+      	*exp(-.5*Me/Te*vxe[iv]*vxe[iv]);}
+   	for(iv=0;iv<nvi;iv++){oldFi[nvi*ix+iv]=Fi[nvi*ix+iv]=nb*(1.+.01*sin(8.*PI*ix/nx))
+      	*exp(-.5*Ti/Mi*Vxi[iv]*Vxi[iv]);}
+   	for(iv=0;iv<nve;iv++){oldFe[nve*ix+iv]=Fe[nve*ix+iv]=nb
+      	*(1.+.01*sin(8.*PI*ix/nx))*exp(-.5*Te/Me*Vxe[iv]*Vxe[iv]);}
+	}
+   } break;
+	case 1:{           //Bump on tail instability
+	#if defined(_OPENMP)
+	#pragma omp parallel for schedule(static) private(ix,iv,densi,dense)
+	#endif
+	for(ix=0;ix<nx;ix++){
+	densi=nb/factor1; dense=(1+.04*cos(4.*PI*x[ix]/xmax));
+   for(iv=0;iv<nvi;iv++){fi[nvi*ix+iv]=densi*exp(-.5*Mi/Ti*vxi[iv]*vxi[iv]);}
+   for(iv=0;iv<nve;iv++){
+		fe[nve*ix+iv]=dense*((nb-n0)*exp(-.5*Me*vxe[iv]*vxe[iv]/Te)/factor2
+      +n0*exp(-2.*Me*pow((vxe[iv]-uex),2)/Te)/factor3);
+		}
+	}
+   } break;
+	case 2:{             //Buneman/ion-acoustic instability
+	#if defined(_OPENMP)
+	#pragma omp parallel for schedule(static) private(ix,iv,densi,dense)
+	#endif
+	for(ix=0;ix<nx;ix++){ dense=nb/factor2; densi=nb/factor1;
+   for(iv=0;iv<nvi;iv++){fi[nvi*ix+iv]=densi*(1.+delta[ix]) //*(1.+.000001*sin(8.*PI*ix/nx))
+   	*exp(-.5*Mi*vxi[iv]*vxi[iv]/Ti);}
+   for(iv=0;iv<nve;iv++){fe[nve*ix+iv]=dense //*(1.+delta[ix]) //*(1.+.000001*sin(8.*PI*ix/nx))
+   	*exp(-.5*Me*(vxe[iv]-uex)*(vxe[iv]-uex)/Te);}
+   for(iv=0;iv<nvi;iv++){oldFi[nvi*ix+iv]=Fi[nvi*ix+iv]=nb
+   	//*(1.+.000001*sin(8.*PI*ix/nx))
+   	*(1.+delta[ix])
+   	*exp(-.5*Ti*Vxi[iv]*Vxi[iv]/Mi);}
+   for(iv=0;iv<nve;iv++){oldFe[nve*ix+iv]=Fe[nve*ix+iv]=nb
+   	//*(1.+.000001*sin(8.*PI*ix/nx))
+   	//*(1.+delta[ix])
+      *exp(-.5*Te*Vxe[iv]*Vxe[iv]/Me)*(cos(uex*Vxe[iv])+I*sin(uex*Vxe[iv]));}
+      //*(cos(.01*4.*cos(8.*PI*ix/nx)*Vxe[iv])+I*sin(.01*4.*cos(8.*PI*ix/nx)*Vxe[iv]));}
+	}
+   }break;
+	case 3:{             //Ion beam
+	#if defined(_OPENMP)
+	#pragma omp parallel for schedule(static) private(ix,iv,densi,dense)
+	#endif
+	for(ix=0;ix<nx;ix++){ dense=nb/factor2; densi=nb/factor1;
+   for(iv=0;iv<nvi;iv++){fi[nvi*ix+iv]=densi*(1.+delta[ix])
+   	*exp(-.5*Mi*vxi[iv]*vxi[iv]/Ti);}
+   for(iv=0;iv<nve;iv++){fe[nve*ix+iv]=dense*exp(-.5*Me*vxe[iv]*vxe[iv]/Te);}
+   for(iv=0;iv<nvi;iv++){oldFi[nvi*ix+iv]=Fi[nvi*ix+iv]= //(1.+delta[ix])*
+   	((nb-n0)*exp(-.5*Ti*Vxi[iv]*Vxi[iv]/Mi)
+       +n0*exp(-.5*Tb*Vxi[iv]*Vxi[iv]/Mi)*(cos(uix*Vxi[iv])+I*sin(uix*Vxi[iv])));}
+   for(iv=0;iv<nve;iv++){oldFe[nve*ix+iv]=Fe[nve*ix+iv]=nb*(1.+delta[ix])
+   	*exp(-.5*Te/Me*Vxe[iv]*Vxe[iv]);}
+	}
+   }break;
+}
+#if defined(_OPENMP)
+#pragma omp parallel for private(i) reduction(+:ions,electrons)
+#endif
+for(i=0;i<ni;i++){ions+=fi[i];}
+#if defined(_OPENMP)
+#pragma omp parallel for private(i) reduction(+:ions,electrons)
+#endif
+for(i=0;i<ne;i++){electrons+=fe[i];}
+
+printf("\n N_i = %1.5e \t\t N_e = %1.5e", ions*dvi*dx, electrons*dve*dx);
+printf("\n Analytical estimate: %1.5e \n", 2*nb*xmax);
+save=fopen("timeave.dat","wb"); fclose(save);
+saves = fopen("timeavesign.dat","wb"); fclose(saves);
+
+srhoi=fopen("rhoi.dat","wb"); srhoe=fopen("rhoe.dat","w");
+srho=fopen("rho.dat","wb");
+sjxi=fopen("jxi.dat","wb"); sjxe=fopen("jxe.dat","wb");
+sjx=fopen("jx.dat","wb"); sEx=fopen("Ex.dat","wb");
+sfi=fopen("fi.dat","wb"); sfe=fopen("fe.dat","wb");
+
+t=0.;
+if(2.*lD<dx){printf("\n WARNING: l_D not resolved... \n");}
+if(vmax>c){printf("\n ERROR: vmax>c \n"); exit(1);}
+if(dt>=dVe*dx){
+	printf("\n\n CFL violated! dt=%1.2e > dVe*dx=%1.2e", dt, dVe*dx);exit(1);}
+else if(dt<dVe*dx){printf("\n CFL dt=%1.2e < dVe*dx=%1.2e OK", dt, dVe*dx);}
+
+if(dvi<=Ci*E0*dt/Mi){
+	printf("\n\n CFL violated! dv=%1.2e < e*E0*dt/mi=%1.2e", dvi, Ci*E0*dt/Mi);
+   	exit(1);}
+else if(dvi>QMi*E0*dt){
+	printf("\n\n CFL dv=%1.2e > e*E0*dt/mi=%1.2e OK", dvi, QMi*E0*dt);}
+	 printparam();
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////// THIS IS THE MAIN PROGRAM CYCLE //////////////////////
+////////////////////////////////////////////////////////////////////////////////
+while(step<=endstep){
+    integrate();
+    moments1(); fields();
+	 if(step%histstep==0){moments3(); histdata();}
+    if(step%swapstep==0){dumpdist();}
+    integrate();
+    if(step%dumpstep==0){dumpdata();}
+
+    t+=dt*wpi; step++;
+}
+////////////////////////////////////////////////////////////////////////////////
+////////////////// RELEASE MEMORY //////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+fftw_destroy_plan(trans1); fftw_destroy_plan(trans2);
+fftw_destroy_plan(transb1); fftw_destroy_plan(transb2);
+fftw_free(df1); fftw_free(df2);
+fftw_free(dfdx); fftw_free(dfdv);
+fftw_free(rhok); fftw_free(Exk);
+fftw_free(Fi); fftw_free(Fe); fftw_free(oldFi); fftw_free(oldFe);
+free(fi); free(fe); //free(fn); free(df);
+free(jx); free(Ex); free(vxi); free(vxe); free(jxi); free(jxe);
+printf("\n\n");
+}

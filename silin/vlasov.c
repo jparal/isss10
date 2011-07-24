@@ -19,8 +19,14 @@
 #define TPI 6.28318530717958647692528676655900577
 #define TPI3 248.050213442398561403810520536811162
 
-// declaration of all the geneic and auxilary variables
-char tag[20], header[200], date[11];
+//variables for the Adams-Bashforth scheme
+#define B1 2.291666666666667
+#define B2 -2.458333333333333
+#define B3 1.541666666666667
+#define B4 -0.375
+
+// declaration of all generic and auxilary variables
+char tag[20], header[200];
 int nx, ny, nz, nr, i, ir, ix, iv, iy, iz, k, n, il, i0;
 int ivx, ivy, ivz, nw, nwy, nwz, iout, nvmax, nvmax2, nvymax, nmax;
 int savestep, pdfstep, step, histstep, endstep, mbratio, setup, trigger;
@@ -38,12 +44,6 @@ double complex *df2, *fbk, coef, coef1, coef2, fact2, coef5, dummy1, dummy2, dum
 double complex *dfdvy, *daxk, *dayk, *dazk, *kx, *bp, *bm, *dfdv, *G, *rhok;
 double complex *jxk, *jyk, *jzk, *ky, *kz, *fink, *foutk;
 double complex *axk, *ayk, *azk, *ink, *outk, *f1, *f2;
-
-#if defined(_NONINERT)
-double udave, udold, ud, udnew, uxt, *uyt, *uzt, *duy, *duz;
-double *uy, *uz, *uyold, *uzold, *uyave, *uzave, *uynew, *uznew;
-FILE *suy, *suz;
-#endif
 
 fftw_plan db1, db2, dxf, dxb, dyf, dyb, dzf, dzb, *fdxf, *fdxb; 
 fftw_plan transjx, transjy, transjz, transjxk, transjyk, transjzk;
@@ -65,8 +65,30 @@ int nv1, nv1y, nv1z, n11, nv12, nv13, n12, i10; //array dimensions
 long double Et1, Ek1, E1;
 FILE *sf1, *srho1, *sjx1,  *sjy1, *sjz1;
 
-//if code isn't hybrid, we'll need the electrostatic potential
+#if defined(_NONINERT)
+double udave, udold, ud, udnew, uxt, *uyt, *uzt, *duy, *duz;
+double *uy, *uz, *uyold, *uzold, *uyave, *uzave, *uynew, *uznew;
+FILE *suy, *suz;
+	#if defined(_AB4)
+	double ud0, dud1, dud2, dud3, dud4;
+	double *uy0, *uz0, *duy1, *duy2, *duy3, *duy4, *duz1, *duz2, *duz3, *duz4;	
+	#endif
+#endif
+
+#if defined(_AB4)
+//variables for the Adams-Bashforth scheme
+double *dAy1, *dAy2, *dAy3, *dAy4, *dAz1, *dAz2, *dAz3, *dAz4;
+double complex *F0, *dF1, *dF2, *dF3, *dF4;
+	#if defined(_2POP) || defined(_3POP)
+	double complex *F20, *dF21, *dF22, *dF23, *dF24;
+	#endif
+	#if defined(_3POP)
+	double complex *F30, *dF31, *dF32, *dF33, *dF34;
+	#endif
+#endif
+
 #if !defined(_HYBRID)
+//if code isn't hybrid, we'll need the electrostatic potential
 double *phi, *dphi;
 FILE *sphi; 
 #if defined(_2D) || defined(_3D)
@@ -406,6 +428,7 @@ void dumpall(FILE *streamw){ //save the data for restart
 	fwrite(uzold, sizeof(double), nr, streamw);
 	fwrite(&udold, sizeof(double), 1, streamw);
 	#endif
+	fclose(streamw);
 }	
 void reload(FILE *streamw){ //restart the simulation from a pre-saved data check-point
 	fread(&t,sizeof(double), 1, streamw);
@@ -582,15 +605,15 @@ void dumpdist(void){ //PDF diagnostics in codes with 3 populations
    {
 	#pragma omp section
    {
-    sf1=fopen("f1.dat","a+b"); dumpfc(sf1,F1,nv13); fclose(sf1);
+    sf1=fopen("f1.dat","a+b"); dumpfc(sf1,F1,nv13); 
     }
 	#pragma omp section
    {
-    sf2=fopen("f2.dat","a+b"); dumpfc(sf2,F2,nv23); fclose(sf2);
+    sf2=fopen("f2.dat","a+b"); dumpfc(sf2,F2,nv23); 
    }
 	#pragma omp section
    {
-    sf3=fopen("f3.dat","a+b"); dumpfc(sf3,F3,nv33); fclose(sf3);
+    sf3=fopen("f3.dat","a+b"); dumpfc(sf3,F3,nv33); 
    }
    }
 }
@@ -600,17 +623,17 @@ void dumpdist(void){ //or 2 populations
    {
 	#pragma omp section
    {
-    sf1=fopen("f1.dat","a+b"); dumpfc(sf1,F1,nv13); fclose(sf1);
+    sf1=fopen("f1.dat","a+b"); dumpfc(sf1,F1,nv13); 
     }
 	#pragma omp section
    {
-    sf2=fopen("f2.dat","a+b"); dumpfc(sf2,F2,nv23); fclose(sf2);
+    sf2=fopen("f2.dat","a+b"); dumpfc(sf2,F2,nv23); 
    }
    }
 }
 #elif defined(_1POP)
 void dumpdist(void){ //or 1 population
-    sf1=fopen("f1.dat","a+b"); dumpfc(sf1,F1,nv13); fclose(sf1);
+    sf1=fopen("f1.dat","a+b"); dumpfc(sf1,F1,nv13); 
 }
 #endif
 
@@ -1208,22 +1231,6 @@ void moments(double complex *f1, double complex *f2, double complex *f3){
 	#endif
 #ifdef _1D	
 	//filter out high harmonics from all particle moments
-	/*trans1=fftw_plan_dft_r2c_1d(nx,rhoi,fink,FFTW_MEASURE);
-	trans2=fftw_plan_dft_c2r_1d(nx,foutk,rhoi,FFTW_MEASURE);
-
-	fftw_execute(trans1);
-	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
-	fftw_execute(trans2);
-	
-	trans1=fftw_plan_dft_r2c_1d(nx,rhob,fink,FFTW_MEASURE);
-	trans2=fftw_plan_dft_c2r_1d(nx,foutk,rhob,FFTW_MEASURE);
-
-	fftw_execute(trans1);
-	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
-	fftw_execute(trans2);*/
-	
 	trans1=fftw_plan_dft_r2c_1d(nx,rho,fink,FFTW_MEASURE);
 	trans2=fftw_plan_dft_c2r_1d(nx,foutk,rho,FFTW_MEASURE);
 
@@ -1446,12 +1453,13 @@ void moments(double complex *f1){
 		#endif
 	}
 #ifdef _1D	
+	for(i=nw+1;i<nx;i++){foutk[i]=0.;} //filter out high harmonics
 	trans1=fftw_plan_dft_r2c_1d(nx,rho,fink,FFTW_MEASURE);
 	trans2=fftw_plan_dft_c2r_1d(nx,foutk,rho,FFTW_MEASURE);
 
 	fftw_execute(trans1);
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,jx,fink,FFTW_MEASURE);
@@ -1459,7 +1467,7 @@ void moments(double complex *f1){
 
 	fftw_execute(trans1);
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,jy,fink,FFTW_MEASURE);
@@ -1467,7 +1475,7 @@ void moments(double complex *f1){
 
 	fftw_execute(trans1);
 	foutk[0]=0.; for(i=1;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,jz,fink,FFTW_MEASURE);
@@ -1475,7 +1483,7 @@ void moments(double complex *f1){
 
 	fftw_execute(trans1);
 	foutk[0]=0.; for(i=1;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	#if defined(_HYBRID)
 	trans1=fftw_plan_dft_r2c_1d(nx,rhoe,fink,FFTW_MEASURE);
@@ -1483,7 +1491,7 @@ void moments(double complex *f1){
 
 	fftw_execute(trans1);
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,uex,fink,FFTW_MEASURE);
@@ -1491,7 +1499,7 @@ void moments(double complex *f1){
 
 	fftw_execute(trans1);
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,ubx,fink,FFTW_MEASURE);
@@ -1499,7 +1507,7 @@ void moments(double complex *f1){
 
 	fftw_execute(trans1);
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	#endif
 #endif
@@ -1596,7 +1604,7 @@ void moments2(void){
 	Et3+=(t3x[ir]+t3y[ir]+t3z[ir])*rho3[ir]; Px3+=jx3[i];
 	}
 	Et1=.5*Et1/Q1; Et2=.5*Et2/Q2; Et3=.5*Et3/Q3; Ek1=E1-Et1; Ek2=E2-Et2; Ek3=E3-Et3; 
-	Etot=E1+E2+E3+EE+EB; 	Px1=Px1/QM1; Px2=Px2/QM2; Px3=Px3/QM3; Pxtot=Px1+Px2+Px3;
+	Etot=E1+E2+E3+EE+EB; Px1=Px1/QM1; Px2=Px2/QM2; Px3=Px3/QM3; Pxtot=Px1+Px2+Px3;
 }
 #elif defined(_2POP)
 void moments2(void){
@@ -1826,11 +1834,12 @@ void fields(double *ay, double *az, double *pe, double *pet){
 	dfdx(pe,dpe,1); dfdx(ubx,dubx,1.);	
 	
 	EE=EB=Pw=0.;
-	for(i=0;i<nx;i++){ // calcualte E 		
+	for(i=0;i<nr;i++){ // calcualte E 		
 		Ey[i]=uex[i]*Bz[i]-Bx[i]/rhoe[i]*(jz[i]+d2Az[i]); 
 		Ez[i]=-uex[i]*By[i]+Bx[i]/rhoe[i]*(jy[i]+d2Ay[i]);
 		//Ex[i]=-(Ey[i]*By[i]+Ez[i]*Bz[i])/Bx[i]+dpe[i]/rhoe[i];
 		Ex[i]=-(Ey[i]*By[i]+Ez[i]*Bz[i])/Bx[i];
+		//Ex[i]=0.;
 		By[i]=By[i]+By0; Bz[i]=Bz[i]+Bz0;
 		pet[i]=-(dubx[i]*pe[i]+ge*ubx[i]*dpe[i]);
 		Pw+=(Ey[i]*Bz[i]-Ez[i]*By[i]); 
@@ -1838,20 +1847,22 @@ void fields(double *ay, double *az, double *pe, double *pet){
 	EE=.5*EE/c2; EB=.5*EB; Pw=Pw/c2; Pxtot+=Pw;
 		
 	#if defined(_1D)	
+	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	trans1=fftw_plan_dft_r2c_1d(nx,pet,fink,FFTW_MEASURE);
 	trans2=fftw_plan_dft_c2r_1d(nx,foutk,pet,FFTW_MEASURE);
 
 	fftw_execute(trans1); //the DC pet field does not have to be 0!
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,Ex,fink,FFTW_MEASURE);
 	trans2=fftw_plan_dft_c2r_1d(nx,foutk,Ex,FFTW_MEASURE);
 
 	fftw_execute(trans1); //the DC Ex field does not have to be 0!
+	//foutk[0]=0.; 
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,Ey,fink,FFTW_MEASURE);
@@ -1859,7 +1870,7 @@ void fields(double *ay, double *az, double *pe, double *pet){
 
 	fftw_execute(trans1); //the DC Ey = 0
 	foutk[0]=0.; for(i=1;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,Ez,fink,FFTW_MEASURE);
@@ -1867,7 +1878,7 @@ void fields(double *ay, double *az, double *pe, double *pet){
 
 	fftw_execute(trans1); //the DC Ez = 0
 	foutk[0]=0.; for(i=1;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,By,fink,FFTW_MEASURE);
@@ -1875,7 +1886,7 @@ void fields(double *ay, double *az, double *pe, double *pet){
 
 	fftw_execute(trans1); //average By != 0
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	
 	trans1=fftw_plan_dft_r2c_1d(nx,Bz,fink,FFTW_MEASURE);
@@ -1883,7 +1894,7 @@ void fields(double *ay, double *az, double *pe, double *pet){
 
 	fftw_execute(trans1); //average Bz != 0
 	for(i=0;i<nw+1;i++){foutk[i]=fink[i]/nx;}
-	for(i=nw+1;i<nx;i++){foutk[i]=0.;}
+	//for(i=nw+1;i<nx;i++){foutk[i]=0.;}
 	fftw_execute(trans2);
 	#endif
 }
@@ -1897,7 +1908,7 @@ void fields(double *ay, double *az, double *pe, double *pet){
 ////////////////////////////////////////////////////////////////////////////////
 void vlasov(double complex *fnew, double complex *f, double *Vx, double *Vy, double *Vz, double QM, double dV, int nv, int nvy, int nvz, double *ay, double *az){
 	int nwav, nvyz, nvxyz, nzvxyz, nyzvxyz, nvyyz, nzvyyz, nyzvyyz;
-	//old 	  nv2    nv3     n2       n1     n3       n4      n5
+	//old 	  nv2    nv3     n2       n1     n3       n4 		n5
 	double diss;
 	bool flag1, flag2;
 	
@@ -1928,9 +1939,7 @@ void vlasov(double complex *fnew, double complex *f, double *Vx, double *Vy, dou
 	}
 	}
 	
-
 	//printf("\n fourier transform of f taken in %1.3e sec ", zeit());
-
 
 	#pragma omp parallel for private(ix,ivx,ivy,ivz,ir,i,i0)
 	for(ivx=0;ivx<nv;ivx++)
@@ -1945,8 +1954,7 @@ void vlasov(double complex *fnew, double complex *f, double *Vx, double *Vy, dou
 		for(ix=nx-nw;ix<nx;ix++){i=ix*nyzvyyz+ir; 
 		i0=(nx-ix)*nyzvyyz+(nvy-1-ivx)*nvyz+(nvy-1-ivy)*nvz+nvz-1-ivz;
 		G[i]=creal(G[i0])-I*cimag(G[i0]);}
-	}
-	
+	}	
 
 	//printf("\n f extrapolated to -vx in %1.3e sec ", zeit());
 
@@ -2070,17 +2078,8 @@ void vlasov(double complex *fnew, double complex *f, double *Vx, double *Vy, dou
 	}
 	}
 	
-
 	//printf("\n f differentiated over vx in %1.3e sec ", zeit());
 
-	/*#pragma omp parallel for private(ix,ivx,ivy,ivz,il,ir)
-	for(ivy=0;ivy<nvy;ivy++)
- 	for(ivx=0;ivx<nv;ivx++)
-	for(ivz=0;ivz<nvz;ivz++){ir=ivx*nv2+ivy*nvz+ivz; il=(ivx+nv-1)*nv2+ivy*nvz+ivz;
-		for(ix=0;ix<nx;ix++){f1[ivy*nx+ix]=dfdv[ix*n5+il];} fftw_execute(fdxb[ivy]); 
-		for(ix=0;ix<nx;ix++){dfdvy[ix*n1+ir]=I*f2[ivy*nx+ix]*bp[ix*nv2+ivy*nvz+ivz];}
-	}*/
-	
 	#pragma omp parallel for private(ix,ivx,iv,il,ir)
 	for(iv=0;iv<nvyz;iv++)
  	for(ivx=0;ivx<nv;ivx++){ir=ivx*nvyz+iv; il=(ivx+nv-1)*nvyz+iv;
@@ -2093,16 +2092,7 @@ void vlasov(double complex *fnew, double complex *f, double *Vx, double *Vy, dou
 	
 	//printf("\n df/dvx fourier-transormed in %1.3e sec ", zeit());
 	
-	
-	
-	
-	
-	
 	//add dissipative term d6f/dx6*delta*dx4
-	
-	
-	
-	
 	#pragma omp parallel for private(ix,ivx,ivy,ivz,i)
    	for(ix=3;ix<nx-3;ix++) //differentiation of f over x   
 	for(ivx=0;ivx<nv;ivx++)
@@ -2145,16 +2135,6 @@ void vlasov(double complex *fnew, double complex *f, double *Vx, double *Vy, dou
 	for(ivy=0;ivy<nvy;ivy++)
 	for(ivz=0;ivz<nvz;ivz++){i=(nx-3)*nvxyz+ivx*nvyz+ivy*nvz+ivz;
 		dfdvy[i]+=diss*(f[i-3*nvxyz]-6.*f[i-2*nvxyz]+15.*f[i-nvxyz]-20.*f[i]+15.*f[i+nvxyz]-6.*f[i+2*nvxyz]+f[i-(nx-3)*nvxyz]);}
-	
-	
-	
-	
-
-
-	
-	
-	
-	
 	
 	
 	#pragma omp parallel for private(ix,ivx,ivy,ivz,i,i0,A,B,C,D,bet,flag1,flag2,fact1)
@@ -2246,151 +2226,122 @@ void vlasov(double complex *fnew, double complex *f, double *Vx, double *Vy, dou
 ///////////////// VLASOV SOLVER FOR THE DRIFTING POPULATION ////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void vlasov2(double complex *fnew, double complex *f, double *Vx, double *Vy, double *Vz, double QM, double dV, int nv, int nvy, int nvz, double *ay, double *az){
-	int nwav, nv2, nv3, n4, n5;
+	int nwav, nvyz, nvxyz, nzvxyz, nyzvxyz, nvyyz, nzvyyz, nyzvyyz;
+	//old 	  nv2    nv3     n2       n1     n3       n4      n5
 	double diff, diss;
 	bool flag1, flag2;
 	
 	fact2=QM*I; dv=.5/dV; dv2=1./60./dV; dv3=3./dV; diff=0.5*udave/dx; diss=0.0001/dx/dx;
-	nv2=nvy*nvz; nv3=nv*nv2; n2=nz*nv3; n1=ny*n2; n3=nvy*nv2; n4=nz*n3; n5=ny*n4;
+	nvyz=nvy*nvz; nvxyz=nv*nvyz; nzvxyz=nz*nvxyz; nyzvxyz=ny*nzvxyz; // dimensions of f
+	nvyyz=nvy*nvyz; nzvyyz=nz*nvyyz; nyzvyyz=ny*nzvyyz; //dimensions of G
 
 	//zeit();
 	
 	#pragma omp parallel for private(ix,ivy,ivz,i,b)
 	for(ix=0;ix<nx;ix++)
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=ix*nv2+ivy*nvz+ivz; 
+	for(ivz=0;ivz<nvz;ivz++){i=ix*nvyz+ivy*nvz+ivz; 
 		b=-QM*(az[ix]*Vz[ivz]+Vy[ivy]*ay[ix])-(Vy[ivy]*uyave[ix]+Vz[ivz]*uzave[ix]);		
-		//b=-QM*(az[ix]*Vz[ivz]+Vy[ivy]*ay[ix]);
 		bp[i]=cos(b)+I*sin(b); bm[i]=cos(b)-I*sin(b);
 	}
 	//printf("\n b[i] initialized in %1.3e sec ", zeit());
 
-
-	/*#pragma omp parallel for private(ix,ivx,ivy,ivz,i,il,ir,fact1)
-	for(ivy=0;ivy<nvy;ivy++){
-	for(ivx=0;ivx<nv;ivx++)
-	for(ivz=0;ivz<nvz;ivz++){ir=ivx*nv2+ivy*nvz+ivz;
-		il=(ivx+nv-1)*nv2+ivy*nvz+ivz; fact1=QM*(By0*Vz[ivz]-Vy[ivy]*Bz0);
-		for(ix=0;ix<nx;ix++){i=ix*nv2+ivy*nvz+ivz; f1[ivy*nx+ix]=f[ix*n1+ir]*bm[i];}
-		fftw_execute(fdxf[ivy]);
-		for(ix=0;ix<nw+1;ix++){G[ix*n5+il]=I*f2[ivy*nx+ix]*(kx[ix]-fact1/nx);}
-		for(ix=nx-nw;ix<nx;ix++){G[ix*n5+il]=I*f2[ivy*nx+ix]*(kx[ix]-fact1/nx);} 
-	}
-	}*/
-	
 	for(ivy=0;ivy<nvy;ivy++)
 	for(ivz=0;ivz<nvz;ivz++){kx1[ivy*nvz+ivz]=QM*(By0*Vz[ivz]-Vy[ivy]*Bz0)/nx;}
 
 	#pragma omp parallel for private(ix,ivx,iv,i,il,ir)
-	for(iv=0;iv<nv2;iv++){
-	for(ivx=0;ivx<nv;ivx++){ir=ivx*nv2+iv;
-		il=(ivx+nv-1)*nv2+iv; //fact1=QM*(By0*Vz[ivz]-Vy[ivy]*Bz0);
-		for(ix=0;ix<nx;ix++){i=ix*nv2+iv; f1[iv*nx+ix]=f[ix*n1+ir]*bm[i];}
+	for(iv=0;iv<nvyz;iv++){
+	for(ivx=0;ivx<nv;ivx++){ir=ivx*nvyz+iv;
+		il=(ivx+nv-1)*nvyz+iv; 
+		for(ix=0;ix<nx;ix++){i=ix*nvyz+iv; f1[iv*nx+ix]=f[ix*nyzvxyz+ir]*bm[i];}
 		fftw_execute(fdxf[iv]);
-		for(ix=0;ix<nw+1;ix++){G[ix*n5+il]=I*f2[iv*nx+ix]*(kx[ix]-kx1[iv]);}
-		for(ix=nx-nw;ix<nx;ix++){G[ix*n5+il]=I*f2[iv*nx+ix]*(kx[ix]-kx1[iv]);} 
+		for(ix=0;ix<nw+1;ix++){G[ix*nyzvyyz+il]=I*f2[iv*nx+ix]*(kx[ix]-kx1[iv]);}
+		for(ix=nx-nw;ix<nx;ix++){G[ix*nyzvyyz+il]=I*f2[iv*nx+ix]*(kx[ix]-kx1[iv]);} 
 	}
 	}
-	
 
 	//printf("\n fourier transform of f taken in %1.3e sec ", zeit());
 
-
-
-	//dFdx(f,dfdvy,nve,udi);
-	
-	
+	//dFdx(f,dfdvy,nve,diff);
 	
 	#pragma omp parallel for private(ix,ivx,ivy,ivz,i)
    	for(ix=1;ix<nx-1;ix++) //differentiation of f over x   
 	for(ivx=0;ivx<nv;ivx++)
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=ix*nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]=-diff*(f[i+nv3]-f[i-nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=ix*nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]=-diff*(f[i+nvxyz]-f[i-nvxyz]);}
 
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++)   	//differentiation of f over x   
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=(nx-1)*nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]=-diff*(f[i-(nx-1)*nv3]-f[i-nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=(nx-1)*nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]=-diff*(f[i-(nx-1)*nvxyz]-f[i-nvxyz]);}
 
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++)   	//differentiation of f over x   
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]=-diff*(f[i+nv3]-f[i+(nx-1)*nv3]);}
-
-	
+	for(ivz=0;ivz<nvz;ivz++){i=ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]=-diff*(f[i+nvxyz]-f[i+(nx-1)*nvxyz]);}
 	
 	//add dissipative term d6f/dx6*delta*dx4
-	
-	
-	
-	
 	#pragma omp parallel for private(ix,ivx,ivy,ivz,i)
    	for(ix=3;ix<nx-3;ix++) //differentiation of f over x   
 	for(ivx=0;ivx<nv;ivx++)
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=ix*nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]+=diss*(f[i-3*nv3]-6.*f[i-2*nv3]+15.*f[i-nv3]-20.*f[i]+15.*f[i+nv3]-6.*f[i+2*nv3]+f[i+3*nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=ix*nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]+=diss*(f[i-3*nvxyz]-6.*f[i-2*nvxyz]+15.*f[i-nvxyz]-20.*f[i]+15.*f[i+nvxyz]-6.*f[i+2*nvxyz]+f[i+3*nvxyz]);}
 	
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++) //ix=0
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]+=diss*(f[i+(nx-3)*nv3]-6.*f[i+(nx-2)*nv3]+15.*f[i+(nx-1)*nv3]-20.*f[i]+15.*f[i+nv3]-6.*f[i+2*nv3]+f[i+3*nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]+=diss*(f[i+(nx-3)*nvxyz]-6.*f[i+(nx-2)*nvxyz]+15.*f[i+(nx-1)*nvxyz]-20.*f[i]+15.*f[i+nvxyz]-6.*f[i+2*nvxyz]+f[i+3*nvxyz]);}
 	
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++) //ix=1
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]+=diss*(f[i+(nx-3)*nv3]-6.*f[i+(nx-2)*nv3]+15.*f[i-nv3]-20.*f[i]+15.*f[i+nv3]-6.*f[i+2*nv3]+f[i+3*nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]+=diss*(f[i+(nx-3)*nvxyz]-6.*f[i+(nx-2)*nvxyz]+15.*f[i-nvxyz]-20.*f[i]+15.*f[i+nvxyz]-6.*f[i+2*nvxyz]+f[i+3*nvxyz]);}
 	
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++) //ix=2
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=2*nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]+=diss*(f[i+(nx-3)*nv3]-6.*f[i-2*nv3]+15.*f[i-nv3]-20.*f[i]+15.*f[i+nv3]-6.*f[i+2*nv3]+f[i+3*nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=2*nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]+=diss*(f[i+(nx-3)*nvxyz]-6.*f[i-2*nvxyz]+15.*f[i-nvxyz]-20.*f[i]+15.*f[i+nvxyz]-6.*f[i+2*nvxyz]+f[i+3*nvxyz]);}
 	
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++) //ix=nx-1
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=(nx-1)*nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]+=diss*(f[i-3*nv3]-6.*f[i-2*nv3]+15.*f[i-nv3]-20.*f[i]+15.*f[i-(nx-1)*nv3]-6.*f[i-(nx-2)*nv3]+f[i-(nx-3)*nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=(nx-1)*nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]+=diss*(f[i-3*nvxyz]-6.*f[i-2*nvxyz]+15.*f[i-nvxyz]-20.*f[i]+15.*f[i-(nx-1)*nvxyz]-6.*f[i-(nx-2)*nvxyz]+f[i-(nx-3)*nvxyz]);}
 	
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++) //ix=nx-2
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=(nx-2)*nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]+=diss*(f[i-3*nv3]-6.*f[i-2*nv3]+15.*f[i-nv3]-20.*f[i]+15.*f[i+nv3]-6.*f[i-(nx-2)*nv3]+f[i-(nx-3)*nv3]);}
+	for(ivz=0;ivz<nvz;ivz++){i=(nx-2)*nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]+=diss*(f[i-3*nvxyz]-6.*f[i-2*nvxyz]+15.*f[i-nvxyz]-20.*f[i]+15.*f[i+nvxyz]-6.*f[i-(nx-2)*nvxyz]+f[i-(nx-3)*nvxyz]);}
 	
 	#pragma omp parallel for private(ivx,ivy,ivz,i)
 	for(ivx=0;ivx<nv;ivx++) //ix=nx-3
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){i=(nx-3)*nv3+ivx*nv2+ivy*nvz+ivz;
-		dfdvy[i]+=diss*(f[i-3*nv3]-6.*f[i-2*nv3]+15.*f[i-nv3]-20.*f[i]+15.*f[i+nv3]-6.*f[i+2*nv3]+f[i-(nx-3)*nv3]);}
-	
-	
-	
-	
-
+	for(ivz=0;ivz<nvz;ivz++){i=(nx-3)*nvxyz+ivx*nvyz+ivy*nvz+ivz;
+		dfdvy[i]+=diss*(f[i-3*nvxyz]-6.*f[i-2*nvxyz]+15.*f[i-nvxyz]-20.*f[i]+15.*f[i+nvxyz]-6.*f[i+2*nvxyz]+f[i-(nx-3)*nvxyz]);}
 
 	#pragma omp parallel for private(ix,ivx,ivy,ivz,ir,i,i0)
 	for(ivx=0;ivx<nv;ivx++)
 	for(ivy=0;ivy<nvy;ivy++)
-	for(ivz=0;ivz<nvz;ivz++){ir=ivx*nv2+ivy*nvz+ivz;
+	for(ivz=0;ivz<nvz;ivz++){ir=ivx*nvyz+ivy*nvz+ivz;
 		//for kx=0, ix=0
-		i0=(nvy-1-ivx)*nv2+(nvy-1-ivy)*nvz+nvz-1-ivz;
+		i0=(nvy-1-ivx)*nvyz+(nvy-1-ivy)*nvz+nvz-1-ivz;
 		G[ir]=creal(G[i0])-I*cimag(G[i0]);
-		for(ix=1;ix<nw+1;ix++){i=ix*n5+ir; 
-		i0=(nx-ix)*n5+(nvy-1-ivx)*nv2+(nvy-1-ivy)*nvz+nvz-1-ivz;
+		for(ix=1;ix<nw+1;ix++){i=ix*nyzvyyz+ir; 
+		i0=(nx-ix)*nyzvyyz+(nvy-1-ivx)*nvyz+(nvy-1-ivy)*nvz+nvz-1-ivz;
 		G[i]=creal(G[i0])-I*cimag(G[i0]);}
-		for(ix=nx-nw;ix<nx;ix++){i=ix*n5+ir; 
-		i0=(nx-ix)*n5+(nvy-1-ivx)*nv2+(nvy-1-ivy)*nvz+nvz-1-ivz;
+		for(ix=nx-nw;ix<nx;ix++){i=ix*nyzvyyz+ir; 
+		i0=(nx-ix)*nyzvyyz+(nvy-1-ivx)*nvyz+(nvy-1-ivy)*nvz+nvz-1-ivz;
 		G[i]=creal(G[i0])-I*cimag(G[i0]);}
 	}
 	
-
 	//printf("\n f extrapolated to -vx in %1.3e sec ", zeit());
 
 	#pragma omp parallel for private(ix,iy,iz,ivx,ivy,ivz,i,i0,A,B,C,D,bet,nwav,fact1,flag1,flag2)
@@ -2409,52 +2360,52 @@ void vlasov2(double complex *fnew, double complex *f, double *Vx, double *Vy, do
 		
 		if(ix==0){ //boundary conditions for modes kx=0
 			if(nwav>0){flag1=true; G[ivy*nvz+ivz]=0.; flag2=false;}
-			else if(nwav<0){flag2=true; G[(nvy-1)*nv2+ivy*nvz+ivz]=0.; flag1=false;}
+			else if(nwav<0){flag2=true; G[(nvy-1)*nvyz+ivy*nvz+ivz]=0.; flag1=false;}
 			else if(nwav==0){flag1=flag2=false;}
 		}
 		else{ //boundary conditions for the mode kx!=0
 			if(nwav>=0){ 
-				if(ix>=nwav&&ix<nx/2-1){flag1=true; G[ix*n5+ivy*nvz+ivz]=0.;}
+				if(ix>=nwav&&ix<nx/2-1){flag1=true; G[ix*nyzvyyz+ivy*nvz+ivz]=0.;}
 				else{flag1=false;}
-				if(ix<nwav||ix>nx/2+1){flag2=true; G[ix*n5+(nvy-1)*nv2+ivy*nvz+ivz]=0.;}
+				if(ix<nwav||ix>nx/2+1){flag2=true; G[ix*nyzvyyz+(nvy-1)*nvyz+ivy*nvz+ivz]=0.;}
 				else{flag2=false;}
 			}
 			else{
-				if(ix>nx/2+1&&ix<=nx-1+nwav){flag2=true; G[ix*n5+(nvy-1)*nv2+ivy*nvz+ivz]=0.;}
+				if(ix>nx/2+1&&ix<=nx-1+nwav){flag2=true; G[ix*nyzvyyz+(nvy-1)*nvyz+ivy*nvz+ivz]=0.;}
 				else{flag2=false;}	
-				if(ix>=nx-1+nwav||ix<nx/2-1){flag1=true; G[ix*n5+ivy*nvz+ivz]=0.;}
+				if(ix>=nx-1+nwav||ix<nx/2-1){flag1=true; G[ix*nyzvyyz+ivy*nvz+ivz]=0.;}
 				else{flag1=false;}
 			}
 		}
 
-		i0=ix*n3+ivy*nvz+ivz; //real part
+		i0=ix*nvyyz+ivy*nvz+ivz; //real part
 		if(flag1){A=0.;B=1.; C=-1.; D=0.;}
-		else{A=0.;B=1.; C=2.; D=-dv*creal(5.*G[i0]-4.*G[i0+nv2]-G[i0+2*nv2]);}
+		else{A=0.;B=1.; C=2.; D=-dv*creal(5.*G[i0]-4.*G[i0+nvyz]-G[i0+2*nvyz]);}
 		bet=B; dft[i0]=D/bet;
-		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nv2;  //foward substitution
-			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(creal(G[i+nv2]-G[i-nv2]));}
+		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nvyz;  //foward substitution
+			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(creal(G[i+nvyz]-G[i-nvyz]));}
 			else if(ivx==nvy-1 &&flag2){A=-1.;B=1.;C=1.; D=0.;}
-			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*creal(5.*G[i]-4.*G[i-nv2]-G[i-2*nv2]);}
-			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(creal(G[i+nv2]-G[i-nv2]));}
-			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(creal(G[i+nv2]-G[i-nv2]));}
-			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nv2])/bet;
+			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*creal(5.*G[i]-4.*G[i-nvyz]-G[i-2*nvyz]);}
+			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(creal(G[i+nvyz]-G[i-nvyz]));}
+			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(creal(G[i+nvyz]-G[i-nvyz]));}
+			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nvyz])/bet;
 		}	//backward substitutioin
-      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nv2; dft[i]-=gam[i+nv2]*dft[i+nv2];}
-		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nv2; dfdv[i]=dft[i];}
+      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nvyz; dft[i]-=gam[i+nvyz]*dft[i+nvyz];}
+		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nvyz; dfdv[i]=dft[i];}
 				
 		if(flag1){A=0.;B=1.; C=-1.; D=0.;} //imaginary part
-		else{A=0.;B=1.; C=2.; D=-dv*cimag(5.*G[i0]-4.*G[i0+nv2]-G[i0+2*nv2]);}
+		else{A=0.;B=1.; C=2.; D=-dv*cimag(5.*G[i0]-4.*G[i0+nvyz]-G[i0+2*nvyz]);}
 		bet=B; dft[i0]=D/bet;
-		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nv2;  //foward substitution
-			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(cimag(G[i+nv2]-G[i-nv2]));}
+		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nvyz;  //foward substitution
+			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(cimag(G[i+nvyz]-G[i-nvyz]));}
 			else if(ivx==nvy-1 && flag2){A=-1.;B=1.;C=1.; D=0.;}
-			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*cimag(5.*G[i]-4.*G[i-nv2]-G[i-2*nv2]);}
-			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(cimag(G[i+nv2]-G[i-nv2]));}
-			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(cimag(G[i+nv2]-G[i-nv2]));}
-			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nv2])/bet;
+			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*cimag(5.*G[i]-4.*G[i-nvyz]-G[i-2*nvyz]);}
+			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(cimag(G[i+nvyz]-G[i-nvyz]));}
+			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(cimag(G[i+nvyz]-G[i-nvyz]));}
+			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nvyz])/bet;
 		}	//backward substitutioin
-      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nv2; dft[i]-=gam[i+nv2]*dft[i+nv2];}
-		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nv2; dfdv[i]+=I*dft[i];}
+      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nvyz; dft[i]-=gam[i+nvyz]*dft[i+nvyz];}
+		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nvyz; dfdv[i]+=I*dft[i];}
 	}
 			
    	for(ix=nx-nw;ix<nx;ix++){
@@ -2464,115 +2415,81 @@ void vlasov2(double complex *fnew, double complex *f, double *Vx, double *Vy, do
 		
 		if(ix==0){ //boundary conditions for modes kx=0
 			if(nwav>0){flag1=true; G[ivy*nvz+ivz]=0.; flag2=false;}
-			else if(nwav<0){flag2=true; G[(nvy-1)*nv2+ivy*nvz+ivz]=0.; flag1=false;}
+			else if(nwav<0){flag2=true; G[(nvy-1)*nvyz+ivy*nvz+ivz]=0.; flag1=false;}
 			else if(nwav==0){flag1=flag2=false;}
 		}
 		else{ //boundary conditions for the mode kx!=0
 			if(nwav>=0){ 
-				if(ix>=nwav&&ix<nx/2-1){flag1=true; G[ix*n5+ivy*nvz+ivz]=0.;}
+				if(ix>=nwav&&ix<nx/2-1){flag1=true; G[ix*nyzvyyz+ivy*nvz+ivz]=0.;}
 				else{flag1=false;}
-				if(ix<nwav||ix>nx/2+1){flag2=true; G[ix*n5+(nvy-1)*nv2+ivy*nvz+ivz]=0.;}
+				if(ix<nwav||ix>nx/2+1){flag2=true; G[ix*nyzvyyz+(nvy-1)*nvyz+ivy*nvz+ivz]=0.;}
 				else{flag2=false;}
 			}
 			else{
-				if(ix>nx/2+1&&ix<=nx-1+nwav){flag2=true; G[ix*n5+(nvy-1)*nv2+ivy*nvz+ivz]=0.;}
+				if(ix>nx/2+1&&ix<=nx-1+nwav){flag2=true; G[ix*nyzvyyz+(nvy-1)*nvyz+ivy*nvz+ivz]=0.;}
 				else{flag2=false;}	
-				if(ix>=nx-1+nwav||ix<nx/2-1){flag1=true; G[ix*n5+ivy*nvz+ivz]=0.;}
+				if(ix>=nx-1+nwav||ix<nx/2-1){flag1=true; G[ix*nyzvyyz+ivy*nvz+ivz]=0.;}
 				else{flag1=false;}
 			}
 		}
 
-		i0=ix*n3+ivy*nvz+ivz; //real part
+		i0=ix*nvyyz+ivy*nvz+ivz; //real part
 		if(flag1){A=0.;B=1.; C=-1.; D=0.;}
-		else{A=0.;B=1.; C=2.; D=-dv*creal(5.*G[i0]-4.*G[i0+nv2]-G[i0+2*nv2]);}
+		else{A=0.;B=1.; C=2.; D=-dv*creal(5.*G[i0]-4.*G[i0+nvyz]-G[i0+2*nvyz]);}
 		bet=B; dft[i0]=D/bet;
-		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nv2;  //foward substitution
-			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(creal(G[i+nv2]-G[i-nv2]));}
+		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nvyz;  //foward substitution
+			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(creal(G[i+nvyz]-G[i-nvyz]));}
 			else if(ivx==nvy-1 &&flag2){A=-1.;B=1.;C=1.; D=0.;}
-			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*creal(5.*G[i]-4.*G[i-nv2]-G[i-2*nv2]);}
-			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(creal(G[i+nv2]-G[i-nv2]));}
-			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(creal(G[i+nv2]-G[i-nv2]));}
-			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nv2])/bet;
+			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*creal(5.*G[i]-4.*G[i-nvyz]-G[i-2*nvyz]);}
+			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(creal(G[i+nvyz]-G[i-nvyz]));}
+			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(creal(G[i+nvyz]-G[i-nvyz]));}
+			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nvyz])/bet;
 		}	//backward substitutioin
-      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nv2; dft[i]-=gam[i+nv2]*dft[i+nv2];}
-		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nv2; dfdv[i]=dft[i];}
+      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nvyz; dft[i]-=gam[i+nvyz]*dft[i+nvyz];}
+		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nvyz; dfdv[i]=dft[i];}
 				
 		if(flag1){A=0.;B=1.; C=-1.; D=0.;} //imaginary part
-		else{A=0.;B=1.; C=2.; D=-dv*cimag(5.*G[i0]-4.*G[i0+nv2]-G[i0+2*nv2]);}
+		else{A=0.;B=1.; C=2.; D=-dv*cimag(5.*G[i0]-4.*G[i0+nvyz]-G[i0+2*nvyz]);}
 		bet=B; dft[i0]=D/bet;
-		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nv2;  //foward substitution
-			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(cimag(G[i+nv2]-G[i-nv2]));}
+		for(ivx=1;ivx<nvy;ivx++){i=i0+ivx*nvyz;  //foward substitution
+			if(ivx>1 && ivx<nvy-1){A=1.;B=4.;C=1.;D=dv3*(cimag(G[i+nvyz]-G[i-nvyz]));}
 			else if(ivx==nvy-1 && flag2){A=-1.;B=1.;C=1.; D=0.;}
-			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*cimag(5.*G[i]-4.*G[i-nv2]-G[i-2*nv2]);}
-			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(cimag(G[i+nv2]-G[i-nv2]));}
-			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(cimag(G[i+nv2]-G[i-nv2]));}
-			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nv2])/bet;
+			else if(ivx==nvy-1 && !flag2){A=2.;B=1.;C=1.; D=dv*cimag(5.*G[i]-4.*G[i-nvyz]-G[i-2*nvyz]);}
+			else if(ivx==1 && !flag1){C=2.;A=1.;B=4.;D=dv3*(cimag(G[i+nvyz]-G[i-nvyz]));}
+			else if(ivx==1 && flag1){C=-1.; A=1.;B=4.;D=dv3*(cimag(G[i+nvyz]-G[i-nvyz]));}
+			gam[i]=C/bet; bet=B-A*gam[i]; dft[i]=(D-A*dft[i-nvyz])/bet;
 		}	//backward substitutioin
-      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nv2; dft[i]-=gam[i+nv2]*dft[i+nv2];}
-		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nv2; dfdv[i]+=I*dft[i];}
+      	for(ivx=nvy-2;ivx>=0;ivx--){i=i0+ivx*nvyz; dft[i]-=gam[i+nvyz]*dft[i+nvyz];}
+		for(ivx=0;ivx<nvy;ivx++){i=i0+ivx*nvyz; dfdv[i]+=I*dft[i];}
 	}
 	}
 	
 
 	//printf("\n f differentiated over vx in %1.3e sec ", zeit());
 
-	/*#pragma omp parallel for private(ix,ivx,ivy,ivz,il,ir)
-	for(ivy=0;ivy<nvy;ivy++)
- 	for(ivx=0;ivx<nv;ivx++)
-	for(ivz=0;ivz<nvz;ivz++){ir=ivx*nv2+ivy*nvz+ivz; il=(ivx+nv-1)*nv2+ivy*nvz+ivz;
-		for(ix=0;ix<nx;ix++){f1[ivy*nx+ix]=dfdv[ix*n5+il];} fftw_execute(fdxb[ivy]); 
-		for(ix=0;ix<nx;ix++){dfdvy[ix*n1+ir]=I*f2[ivy*nx+ix]*bp[ix*nv2+ivy*nvz+ivz];}
-	}*/
-	
 	#pragma omp parallel for private(ix,ivx,iv,il,ir)
-	for(iv=0;iv<nv2;iv++)
- 	for(ivx=0;ivx<nv;ivx++){ir=ivx*nv2+iv; il=(ivx+nv-1)*nv2+iv;
-		//for(ix=0;ix<nx;ix++){f1[iv*nx+ix]=dfdv[ix*n5+il];} fftw_execute(fdxb[iv]); 
-		for(ix=0;ix<nw+1;ix++){f1[iv*nx+ix]=dfdv[ix*n5+il];} 
+	for(iv=0;iv<nvyz;iv++)
+ 	for(ivx=0;ivx<nv;ivx++){ir=ivx*nvyz+iv; il=(ivx+nv-1)*nvyz+iv;
+		for(ix=0;ix<nw+1;ix++){f1[iv*nx+ix]=dfdv[ix*nyzvyyz+il];} 
 		for(ix=nw+1;ix<nx-nw;ix++){f1[iv*nx+ix]=0.;} 
-		for(ix=nx-nw;ix<nx;ix++){f1[iv*nx+ix]=dfdv[ix*n5+il];} fftw_execute(fdxb[iv]); 
-		for(ix=0;ix<nx;ix++){dfdvy[ix*n1+ir]+=I*f2[iv*nx+ix]*bp[ix*nv2+iv];}
-		//for(ix=0;ix<nx;ix++){dfdvy[ix*n1+ir]=I*f2[iv*nx+ix]*bp[ix*nv2+iv];}
+		for(ix=nx-nw;ix<nx;ix++){f1[iv*nx+ix]=dfdv[ix*nyzvyyz+il];} fftw_execute(fdxb[iv]); 
+		for(ix=0;ix<nx;ix++){dfdvy[ix*nyzvxyz+ir]+=I*f2[iv*nx+ix]*bp[ix*nvyz+iv];}
 	}	
 	
 	//printf("\n df/dvx fourier-transormed in %1.3e sec ", zeit());
-	
-	
-	
-	
-	
-	/*#pragma omp parallel for private(ix,ivx,iv,i,il,ir)
-	for(iv=0;iv<nv2;iv++){
-	for(ivx=0;ivx<nv;ivx++){ir=ivx*nv2+iv;
-		for(ix=0;ix<nx;ix++){i=ix*nv2+iv; f1[iv*nx+ix]=f[ix*n1+ir];}
-		fftw_execute(fdxf[iv]);
-		for(ix=0;ix<nw+1;ix++){f1[iv*nx+ix]=udi*f2[iv*nx+ix]*kx[ix];}
-		for(ix=nw+1;ix<nx-nw;ix++){f1[iv*nx+ix]=0.;} 
-		for(ix=nx-nw;ix<nx;ix++){f1[iv*nx+ix]=udi*f2[iv*nx+ix]*kx[ix];} 
 		
-		fftw_execute(fdxb[iv]); 
-		for(ix=0;ix<nx;ix++){dfdvy[ix*n1+ir]+=f2[iv*nx+ix];}
-
-	}
-	}*/
-	
-	
-	
-	
-	
 	#pragma omp parallel for private(ix,ivx,ivy,ivz,i,i0,A,B,C,D,bet,flag1,flag2,fact1)
    	for(ix=0;ix<nx;ix++) //differentiation of G over vz   
 	for(ivx=0;ivx<nv;ivx++){
 	for(ivy=0;ivy<nvy;ivy++){ fact1=QM*(Bx[ix]*Vy[ivy]-Vx[ivx]*By[ix]); 
-								//fact1=QM*(bx[ix]*Vy[ivy]-Vx[ivx]*(by[ix]-duz[ix])); 
 		
 		if(fact1>0){ //ivy<nvy/2
-			flag1=false; flag2=true; f[ix*nv3+ivx*nv2+ivy*nvz+nvz-1]=0.;}
+			flag1=false; flag2=true; f[ix*nvxyz+ivx*nvyz+ivy*nvz+nvz-1]=0.;}
 		else if(fact1<0){ //ivy>nvy/2
-			flag2=false; flag1=true; f[ix*nv3+ivx*nv2+ivy*nvz]=0.;}
+			flag2=false; flag1=true; f[ix*nvxyz+ivx*nvyz+ivy*nvz]=0.;}
 		else if(fact1==0){flag1=flag2=false;}
 		
-		i0=ix*nv3+ivx*nv2+ivy*nvz; //real part
+		i0=ix*nvxyz+ivx*nvyz+ivy*nvz; //real part
 		if(flag1){A=0.;B=1.; C=-1.; D=0.;}
 		else{A=0.;B=1.; C=2.; D=-dv*creal(5.*f[i0]-4.*f[i0+1]-f[i0+2]);}
 		bet=B; dft[i0]=D/bet;
@@ -2603,15 +2520,14 @@ void vlasov2(double complex *fnew, double complex *f, double *Vx, double *Vy, do
 	}
 
 	for(ivz=0;ivz<nvz;ivz++){ fact1=QM*(Bz[ix]*Vx[ivx]-Vz[ivz]*Bx[ix]); 
-								//fact1=QM*((bz[ix]+duy[ix])*Vx[ivx]-Vz[ivz]*bx[ix]); 
 		//differentiation of G over vy
 		if(fact1<0){
-			flag1=true; f[ix*nv3+ivx*nv2+ivz]=0.; flag2=false;}
+			flag1=true; f[ix*nvxyz+ivx*nvyz+ivz]=0.; flag2=false;}
 		else if(fact1>0){
-			flag2=true; f[ix*nv3+ivx*nv2+(nvy-1)*nvz+ivz]=0.; flag1=false;}
+			flag2=true; f[ix*nvxyz+ivx*nvyz+(nvy-1)*nvz+ivz]=0.; flag1=false;}
 		else if(fact1==0){flag1=flag2=false;}
 		
-		i0=ix*nv3+ivx*nvy*nvz+ivz; //real part
+		i0=ix*nvxyz+ivx*nvy*nvz+ivz; //real part
 		if(flag1){A=0.;B=1.; C=-1.; D=0.;}
 		else{A=0.;B=1.; C=2.; D=-dv*creal(5.*f[i0]-4.*f[i0+nvz]-f[i0+2*nvz]);}
 		bet=B; dft[i0]=D/bet;
@@ -2657,7 +2573,7 @@ void vlasov2(double complex *fnew, double complex *f, double *Vx, double *Vy, do
 
 
 #if defined(_3POP)
-void integrate(){	//Runge-Kutta time advancement 
+void integrateRK4(){	//Runge-Kutta time advancement 
 
 	moments(F1, F2, F3); 
 	#if defined(_NONINERT)
@@ -2792,7 +2708,7 @@ void integrate(){	//Runge-Kutta time advancement
 		Ay[i]=Ayn[i]-dt2*Ey[i]; Az[i]=Azn[i]-dt2*Ez[i];}
 }
 #elif defined(_2POP)
-void integrate(){	//Runge-Kutta time advancement 
+void integrateRK4(){	//Runge-Kutta time advancement 
 	moments(F1, F2); 
 	#if defined(_NONINERT)
 	udave=udold; udnew=udold; //uxt=(ud-udold)/dt; 
@@ -2919,7 +2835,7 @@ void integrate(){	//Runge-Kutta time advancement
 		Ay[i]=Ayn[i]-dt2*Ey[i]; Az[i]=Azn[i]-dt2*Ez[i];}
 }
 #elif defined(_1POP)
-void integrate(){	//Runge-Kutta time advancement 
+void integrateRK4(){	//Runge-Kutta time advancement 
 	
 	moments(F1);  
 	
@@ -2969,6 +2885,109 @@ void integrate(){	//Runge-Kutta time advancement
 		Ay[i]=Ayn[i]-dt2*Ey[i]; Az[i]=Azn[i]-dt2*Ez[i];}
 
 }
+#endif
+#if defined(_AB4)
+#if defined(_3POP)
+void integrateAB4(){	//Adams-Bashforth time advancement 
+	#pragma omp parallel for private(i)
+	for(i=0;i<n11;i++){dF4[i]=dF3[i]; dF3[i]=dF2[i]; dF2[i]=dF1[i];}
+	#pragma omp parallel for private(i)
+	for(i=0;i<n21;i++){dF24[i]=dF23[i]; dF23[i]=dF22[i]; dF22[i]=dF21[i];}
+	#pragma omp parallel for private(i)
+	for(i=0;i<n31;i++){dF34[i]=dF33[i]; dF33[i]=dF32[i]; dF32[i]=dF31[i];}
+
+	#if defined(_NONINERT)
+	ud0=udold; dud4=dud3; dud3=dud2; dud2=dud1;
+	for(i=0;i<nr;i++){uy0[i]=uyold[i]; uz0[i]=uzold[i];}
+	#endif
+	moments(F1,F2,F3); fields(Ay, Az, pe, pet);	
+	vlasov(dF1, F1, Vx1, Vy1, Vz1, QM1, dV1, nv1, nv1y, nv1z, Ay, Az);   
+	vlasov(dF21, F2, Vx2, Vy2, Vz2, QM2, dV2, nv2, nv2y, nv2z, Ay, Az);   
+	#if defined(_NONINERT)
+	//ud0=udold; dud4=dud3; dud3=dud2; dud2=dud1;
+	//for(i=0;i<nr;i++){uy0[i]=uyold[i]; uz0[i]=uzold[i];}
+	vlasov2(dF31, F3, Vx3, Vy3, Vz3, QM3, dV3, nv3, nv3y, nv3z, Ay, Az);   
+	#else
+	vlasov(dF31, F3, Vx3, Vy3, Vz3, QM3, dV3, nv3, nv3y, nv3z, Ay, Az);   
+	#endif
+	#pragma omp parallel for private(i)
+	for(i=0;i<n11;i++){dF1[i]=dF1[i]*dt; 
+		F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+	#pragma omp parallel for private(i)
+	for(i=0;i<n21;i++){dF21[i]=dF21[i]*dt; 
+		F2[i]+=B1*dF21[i]+B2*dF22[i]+B3*dF23[i]+B4*dF24[i];}
+	#pragma omp parallel for private(i)
+	for(i=0;i<n31;i++){dF31[i]=dF31[i]*dt; 
+		F3[i]+=B1*dF31[i]+B2*dF32[i]+B3*dF33[i]+B4*dF34[i];}
+	for(i=0;i<nr;i++){
+		dAy4[i]=dAy3[i]; dAy3[i]=dAy2[i]; dAy2[i]=dAy1[i]; dAy1[i]=-dt*Ey[i]; 
+		dAz4[i]=dAz3[i]; dAz3[i]=dAz2[i]; dAz2[i]=dAz1[i]; dAz1[i]=-dt*Ez[i];
+		Ay[i]+=B1*dAy1[i]+B2*dAy2[i]+B3*dAy3[i]+B4*dAy4[i]; 
+		Az[i]+=B1*dAz1[i]+B2*dAz2[i]+B3*dAz3[i]+B4*dAz4[i];}
+	#if defined(_NONINERT)
+	dud1=ud-ud0; udold=ud0+B1*dud1+B2*dud2+B3*dud3+B4*dud4;
+	for(i=0;i<nr;i++){
+		duy4[i]=duy3[i]; duy3[i]=duy2[i]; duy2[i]=duy1[i]; duy1[i]=uy[i]-uy0[i]; 
+		duz4[i]=duz3[i]; duz3[i]=duz2[i]; duz2[i]=duz1[i]; duz1[i]=uz[i]-uz0[i];
+		uyold[i]=ud0[i]+B1*duy1[i]+B2*duy2[i]+B3*duy3[i]+B4*duy4[i];
+		uzold[i]=ud0[i]+B1*duz1[i]+B2*duz2[i]+B3*duz3[i]+B4*duz4[i];}
+	#endif
+}
+#elif defined(_2POP)
+void integrateAB4(){	//Adams-Bashforth time advancement 
+	#pragma omp parallel for private(i)
+	for(i=0;i<n11;i++){dF4[i]=dF3[i]; dF3[i]=dF2[i]; dF2[i]=dF1[i];}
+	#pragma omp parallel for private(i)
+	for(i=0;i<n21;i++){dF24[i]=dF23[i]; dF23[i]=dF22[i]; dF22[i]=dF21[i];}
+	#if defined(_NONINERT)
+	ud0=udold; dud4=dud3; dud3=dud2; dud2=dud1;
+	for(i=0;i<nr;i++){uy0[i]=uyold[i]; uz0[i]=uzold[i];}
+	#endif
+	moments(F1,F2); fields(Ay, Az, pe, pet);	
+	vlasov(dF1, F1, Vx1, Vy1, Vz1, QM1, dV1, nv1, nv1y, nv1z, Ay, Az);   
+	#if defined(_NONINERT)
+	//ud0=udold; dud4=dud3; dud3=dud2; dud2=dud1;
+	//for(i=0;i<nr;i++){uy0[i]=uyold[i]; uz0[i]=uzold[i];}
+	vlasov2(dF21, F2, Vx2, Vy2, Vz2, QM2, dV2, nv2, nv2y, nv2z, Ay, Az);   
+	#else
+	vlasov(dF21, F2, Vx2, Vy2, Vz2, QM2, dV2, nv2, nv2y, nv2z, Ay, Az);   
+	#endif	
+	#pragma omp parallel for private(i)
+	for(i=0;i<n11;i++){dF1[i]=dF1[i]*dt; 
+		F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+	#pragma omp parallel for private(i)
+	for(i=0;i<n21;i++){dF21[i]=dF21[i]*dt; 
+		F2[i]+=B1*dF21[i]+B2*dF22[i]+B3*dF23[i]+B4*dF24[i];}
+	for(i=0;i<nr;i++){
+		dAy4[i]=dAy3[i]; dAy3[i]=dAy2[i]; dAy2[i]=dAy1[i]; dAy1[i]=-dt*Ey[i]; 
+		dAz4[i]=dAz3[i]; dAz3[i]=dAz2[i]; dAz2[i]=dAz1[i]; dAz1[i]=-dt*Ez[i];
+		Ay[i]+=B1*dAy1[i]+B2*dAy2[i]+B3*dAy3[i]+B4*dAy4[i]; 
+		Az[i]+=B1*dAz1[i]+B2*dAz2[i]+B3*dAz3[i]+B4*dAz4[i];}
+	#if defined(_NONINERT)
+	dud1=ud-ud0; udold=ud0+B1*dud1+B2*dud2+B3*dud3+B4*dud4;
+	for(i=0;i<nr;i++){
+		duy4[i]=duy3[i]; duy3[i]=duy2[i]; duy2[i]=duy1[i]; duy1[i]=uy[i]-uy0[i]; 
+		duz4[i]=duz3[i]; duz3[i]=duz2[i]; duz2[i]=duz1[i]; duz1[i]=uz[i]-uz0[i];
+		uyold[i]=uy0[i]+B1*duy1[i]+B2*duy2[i]+B3*duy3[i]+B4*duy4[i];
+		uzold[i]=uz0[i]+B1*duz1[i]+B2*duz2[i]+B3*duz3[i]+B4*duz4[i];}
+	#endif
+}
+#elif defined(_1POP)
+void integrateAB4(){	//Adams-Bashforth time advancement 
+	#pragma omp parallel for private(i)
+	for(i=0;i<n11;i++){dF4[i]=dF3[i]; dF3[i]=dF2[i]; dF2[i]=dF1[i];}
+	moments(F1); fields(Ay, Az, pe, pet);	
+	vlasov(dF1, F1, Vx1, Vy1, Vz1, QM1, dV1, nv1, nv1y, nv1z, Ay, Az);   
+	#pragma omp parallel for private(i)
+	for(i=0;i<n11;i++){dF1[i]=dF1[i]*dt; 
+		F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+	for(i=0;i<nr;i++){
+		dAy4[i]=dAy3[i]; dAy3[i]=dAy2[i]; dAy2[i]=dAy1[i]; dAy1[i]=-dt*Ey[i]; 
+		dAz4[i]=dAz3[i]; dAz3[i]=dAz2[i]; dAz2[i]=dAz1[i]; dAz1[i]=-dt*Ez[i];
+		Ay[i]+=B1*dAy1[i]+B2*dAy2[i]+B3*dAy3[i]+B4*dAy4[i]; 
+		Az[i]+=B1*dAz1[i]+B2*dAz2[i]+B3*dAz3[i]+B4*dAz4[i];}
+}
+#endif
 #endif
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// MAIN FUNCTION ///////////////////////////////////
@@ -3123,6 +3142,10 @@ QM2=Q2/M2; nv2y=nv2z=2*nv2-1; nv22=nv2y*nv2z; nv23=nv2*nv22; n21=nr*nv23; n22=nr
 	#if defined(_3POP)
 	T3=T3*T1; vT3=sqrt(T3/M3); dV3=vmax3/nv3/vT3;
 	#endif
+	
+	
+	
+	
 #else
 //normalization for the electron and general codes, epsilon0=1, mu0=1/c2
 //B0=sqrt(2.*n1*T1/beta)/c; //in SI units, if epsilon_0=1, mu_0 = 1/c^2
@@ -3280,6 +3303,50 @@ ink=(double complex*)fftw_malloc(sizeof(double complex)*nx);
 outk=(double complex*)fftw_malloc(sizeof(double complex)*nx);
 fink=(double complex*)fftw_malloc(sizeof(double complex)*nr);
 foutk=(double complex*)fftw_malloc(sizeof(double complex)*nr);
+
+#if defined(_AB4)
+//allocation of arrays for Adams-Bashforth scheme
+F0=(double complex*)fftw_malloc(sizeof(double complex)*n11);
+dF1=(double complex*)fftw_malloc(sizeof(double complex)*n11);
+dF2=(double complex*)fftw_malloc(sizeof(double complex)*n11);
+dF3=(double complex*)fftw_malloc(sizeof(double complex)*n11);
+dF4=(double complex*)fftw_malloc(sizeof(double complex)*n11);
+dAy1= (double *) calloc(nr, sizeof(double));
+dAy2= (double *) calloc(nr, sizeof(double));
+dAy3= (double *) calloc(nr, sizeof(double));
+dAy4= (double *) calloc(nr, sizeof(double));
+dAz1= (double *) calloc(nr, sizeof(double));
+dAz2= (double *) calloc(nr, sizeof(double));
+dAz3= (double *) calloc(nr, sizeof(double));
+dAz4= (double *) calloc(nr, sizeof(double));
+	#if defined(_2POP) || defined(_3POP)
+	F20=(double complex*)fftw_malloc(sizeof(double complex)*n21);
+	dF21=(double complex*)fftw_malloc(sizeof(double complex)*n21);
+	dF22=(double complex*)fftw_malloc(sizeof(double complex)*n21);
+	dF23=(double complex*)fftw_malloc(sizeof(double complex)*n21);
+	dF24=(double complex*)fftw_malloc(sizeof(double complex)*n21);
+	#endif
+	#if defined(_3POP)
+	F30=(double complex*)fftw_malloc(sizeof(double complex)*n31);
+	dF31=(double complex*)fftw_malloc(sizeof(double complex)*n31);
+	dF32=(double complex*)fftw_malloc(sizeof(double complex)*n31);
+	dF33=(double complex*)fftw_malloc(sizeof(double complex)*n31);
+	dF34=(double complex*)fftw_malloc(sizeof(double complex)*n31);
+	#endif
+	#if defined(_NONINERT)
+	uy0= (double *) calloc(nr, sizeof(double));
+	uz0= (double *) calloc(nr, sizeof(double));
+	duy1= (double *) calloc(nr, sizeof(double));
+	duy2= (double *) calloc(nr, sizeof(double));
+	duy3= (double *) calloc(nr, sizeof(double));
+	duy4= (double *) calloc(nr, sizeof(double));
+	duz1= (double *) calloc(nr, sizeof(double));
+	duz2= (double *) calloc(nr, sizeof(double));
+	duz3= (double *) calloc(nr, sizeof(double));
+	duz4= (double *) calloc(nr, sizeof(double));
+	#endif
+#endif
+
 nvmax=nv1; //determine the size of auxilary arrays
 #if defined(_2POP) || defined(_3POP)
 if(nv2>nvmax){nvmax=nv2;} //if nv2 is larger, we'll use it
@@ -3463,26 +3530,28 @@ for(i=0;i<nv3y;i++){Vy3[i]=Vz3[i]=dV3*(i-nv3+1);}
 
 if((fopen("restart0.dat","r")) == NULL){ //if starting from scratch, not from the pre-saved data set
 
-dump=fopen("restart0.dat","wb"); //create the file for the data at the end of simulation
+//dump=fopen("restart0.dat","wb"); //create the file for the data at the end of simulation
+
+sprintf(tag,"restart0.dat"); //create the name for the data file
 
 for(iout=0;iout<2;iout++){	//write the header in the stdout and in the param.dat file
     if(iout==1){streamw = fopen("param.dat","w");}
     if(iout==0){streamw=stdout;}
 
-	sprintf(date,"30.05.2011");
 	#if defined(_HYBRID)
-	sprintf(header,"Hybrid");
+	sprintf(header,"Hybrid ");
 	#endif
 	#if defined(_ELEC)
-	sprintf(header,"Electron");
+	sprintf(header,"Electron ");
 	#endif
 	#if defined(_3D)
-	sprintf(header,"3D3V Fourier-Vlasov code vers.%s",date);
+	strcat(header,"3D3V");
 	#elif defined(_2D)
-	sprintf(header,"2D3V Fourier-Vlasov code vers.%s",date);
+	strcat(header,"2D3V");
 	#elif defined(_1D)
-	sprintf(header,"1D3V Fourier-Vlasov code vers.%s",date);
+	strcat(header,"1D3V");
 	#endif
+	strcat(header," Fourier-Vlasov code vers. 27.06.2011"); //print out the date of the code version!!!
 	
 	
 	#if defined(_OPENMP)
@@ -3491,13 +3560,18 @@ for(iout=0;iout<2;iout++){	//write the header in the stdout and in the param.dat
 	fprintf(streamw,"\n %s \n", header);
 	#endif
 
+#if defined(_AB4)
+	fprintf(streamw,"\n 4th-order Adams-Bashforth time integration");
+#else
+	fprintf(streamw,"\n 4th-order Runge-Kutta time integration");
+#endif
 #if defined(_NONINERT)
-	fprintf(streamw,"\n The beam reference frame is moving at variable speeds in all directions, R-K advancement");
+	fprintf(streamw,"\n The beam reference frame is moving at variable speeds in all velocity directions");
 #else
 	fprintf(streamw,"\n The beam reference frame is stationary");
 #endif
 	fprintf(streamw,"\n Adaptive mesh refinement with tricubic interpolation is used");
-	fprintf(streamw,"\n the number of waves in the box nw=%i",nw);
+	fprintf(streamw,"\n The number of resolved wave harmonics nw=%i",nw);
     fprintf(streamw,"\n xmax  = %.1f  \t  nx  = %i \t  ny = %i \t  nz = %i", xmax,nx,ny,nz);
     fprintf(streamw,"\n n1=%1.3f \t  ud1=%1.3f \t  T1=%.1f \t  M1=%.1f \t Q1=%.1f \t A1=%.1f \t nv1=%i",n1,ud1,T1,M1,Q1,A1,nv1);
 	#if defined(_2POP) || defined(_3POP)
@@ -3832,12 +3906,16 @@ moments(F1);
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////// THIS IS THE MAIN PROGRAM CYCLE //////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+#if !defined(_AB4)
+//The 4th order Runge-Kutta scheme
 while(step<=endstep){
-    t+=dt; step++; integrate();	
+    t+=dt; step++; integrateRK4();	
 	//printf("\n udold=%1.3e udave=%1.3e", udold, udave);
 	//printf("\n udold=%1.3e udave=%1.3e udnew=%1.3e", udold, udave, udnew);
 	//udold=udave; //udave=udnew;
 	if(step%histstep==0){moments2(); histdata();}
+    if(step%pdfstep==0){dumpdist();} //save the PDF
+    if(step%savestep==0){dumpdata();} //save the fields
 	
 	if(ave(t1x)+ave(t1y)+ave(t1z)>9.*T1&&T1<10.){ //if the average temperature increases by 3 
 		dumpdist(); //save the old PDFs
@@ -3884,10 +3962,8 @@ while(step<=endstep){
 	}
 	#endif
 	
-    if(step%pdfstep==0){dumpdist();} //save the PDF
-    if(step%savestep==0){dumpdata();} //save the fields
 	//printf("\n diagnostics for step %i complete in %1.3e sec", step, zeit());
-	printf("\n step %i complete in %1.3e sec", step, zeit());
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
 
 	#if defined(_1POP)
 	if(fabs(ave(rhoe)-n1)>.01*n1){printf("\n density conservation violated! \n"); exit(1);}
@@ -3898,19 +3974,407 @@ while(step<=endstep){
 	#endif
 	
 	//printf("\n total runtime to current step is %1.3e sec", runtime(1));
+	#if defined(_OPENMP)
 	if(runtime(1)>86100){ //86100 sec termination for 24-hour runs!!!
 	zeit();
-	printf("\n total runtime is %d sec, dumping the data for restarting point \n", runtime(1));
-	dumpall(dump); fclose(dump); 
+	printf("\n total runtime is %d sec, dumping the data for a restarting point \n", runtime(1));
+	dump=fopen(tag,"wb"); dumpall(dump); //fclose(dump); 
 	printf("\n dumping complete in %1.3e sec", zeit());
 	exit(2);}
+	#endif
 }
-////////////////////////////////////////////////////////////////////////////////
-////////////////// RELEASE MEMORY //////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-/*fftw_destroy_plan(dx1); fftw_destroy_plan(dx2);
-fftw_free(fb); fftw_free(df2); fftw_free(dfdv);
-fftw_free(rhok); fftw_free(Fi); fftw_free(Fe); 
-free(jx); free(Ex); free(jxi); free(jxe);*/
+#else
+//the Adams-Bashforth scheme
+	#if defined(_NONINERT)
+		#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){F0[i]=F1[i];}	
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){F0[i]=F1[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){F0[i]=F1[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){F30[i]=F3[i];}	
+	#endif
+	ud0=udold;
+	for(i=0;i<nr;i++){Ay0[i]=Ay[i]; Az0[i]=Az[i]; uy0[i]=uyold[i]; uz0[i]=uzold[i];}
+	integrateRK4(); t+=dt; step++; 
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF4[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF4[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF24[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF4[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF24[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF34[i]=F3[i]-F30[i]; F30[i]=F3[i];}	
+	#endif
+	dud4=ud-ud0; ud0=ud;
+	for(i=0;i<nr;i++){dAy4[i]=Ay[i]-Ay0[i]; dAz4[i]=Az[i]-Az0[i]; 
+	duy4[i]=uy[i]-uy0[i]; duz4[i]=uz[i]-uz0[i]; uy0[i]=uy[i]; uz0[i]=uz[i];}
+	integrateRK4(); t+=dt; step++;
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF3[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF3[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF23[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF3[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF23[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF33[i]=F3[i]-F30[i]; F30[i]=F3[i];}	
+	#endif
+	dud3=ud-ud0; ud0=ud;
+	for(i=0;i<nr;i++){dAy3[i]=Ay[i]-Ay0[i]; dAz3[i]=Az[i]-Az0[i];
+	duy3[i]=uy[i]-uy0[i]; duz3[i]=uz[i]-uz0[i]; uy0[i]=uy[i]; uz0[i]=uz[i];}
+	integrateRK4(); t+=dt; step++;
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF2[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF2[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF22[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF2[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF22[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF32[i]=F3[i]-F30[i]; F30[i]=F3[i];}	
+	#endif
+	dud2=ud-ud0; ud0=ud;
+	for(i=0;i<nr;i++){dAy2[i]=Ay[i]-Ay0[i]; dAz2[i]=Az[i]-Az0[i];
+	duy2[i]=uy[i]-uy0[i]; duz2[i]=uz[i]-uz0[i]; uy0[i]=uy[i]; uz0[i]=uz[i];}
+	integrateRK4(); t+=dt; step++;
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	//this is the first Adams-Bashforth time advancement
+
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF1[i]=F1[i]-F0[i]; F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF1[i]=F1[i]-F0[i]; F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF21[i]=F2[i]-F20[i]; F2[i]+=B1*dF21[i]+B2*dF22[i]+B3*dF23[i]+B4*dF24[i];}
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF1[i]=F1[i]-F0[i]; F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF21[i]=F2[i]-F20[i]; F2[i]+=B1*dF21[i]+B2*dF22[i]+B3*dF23[i]+B4*dF24[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF31[i]=F3[i]-F30[i]; F3[i]+=B1*dF31[i]+B2*dF32[i]+B3*dF33[i]+B4*dF34[i];}
+	#endif
+	dud1=ud-ud0; udold=ud0+B1*dud1+B2*dud2+B3*dud3+B4*dud4;
+	for(i=0;i<nr;i++){dAy1[i]=Ay[i]-Ay0[i]; dAz1[i]=Az[i]-Az0[i];  
+		Ay[i]+=B1*dAy1[i]+B2*dAy2[i]+B3*dAy3[i]+B4*dAy4[i]; 
+		Az[i]+=B1*dAz1[i]+B2*dAz2[i]+B3*dAz3[i]+B4*dAz4[i];//}
+		duy1[i]=uy[i]-uy0[i]; 
+		duz1[i]=uz[i]-uz0[i];
+		uyold[i]+=B1*duy1[i]+B2*duy2[i]+B3*duy3[i]+B4*duy4[i]; 
+		uzold[i]+=B1*duz1[i]+B2*duz2[i]+B3*duz3[i]+B4*duz4[i];}
+
+	while(step<=endstep){
+    t+=dt; step++; integrateAB4();
+
+	if(step%histstep==0){moments2(); histdata();}
+    if(step%pdfstep==0){dumpdist();} //save the PDF
+    if(step%savestep==0){dumpdata();} //save the fields
+	
+	if(ave(t1x)+ave(t1y)+ave(t1z)>9.*T1&&T1<10.){ //if the average temperature increases by 3 
+		dumpdist(); //save the old PDFs
+		dV1=.5*dV1; //printf("\n dVe=%f",  dVe); //redefine the grid size
+		for(i=0;i<nv1;i++){Vx1[i]=dV1*i;}//  printf("\n Vxe[%i]=%f", i, Vxe[i]);} //redefine the velocity grid
+		for(i=0;i<nv1y;i++){Vy1[i]=Vz1[i]=dV1*(i-nv1+1);}// printf("\n Vye[%i]=%f", i, Vye[i]);}
+		refine(F1, nv1); //refine the PDF on the new grid
+		dumpdist(); //save the new PDF
+		ref=fopen("refinement.dat","a"); //report the refinement 
+		fprintf(ref,"\n Adaptive mesh refinement invoked at t = %f, step = %i", t, step);
+		fprintf(ref,"\n T1 = %f before the refinement, T1 = %f, after the refinement", T1, 3.*T1);
+		T1=T1*3.; //redefine the new average temperature
+		fclose(ref); //release the handle of the report file
+	}
+	#if defined(_2POP) || defined(_3POP)
+	if(ave(t2x)+ave(t2y)+ave(t2z)>9.*T2&&T2<10.){ //if the average temperature increases by 3 
+		dumpdist(); //save the old PDFs
+		dV2=.5*dV2; //printf("\n dVe=%f",  dVe); //redefine the grid size
+		for(i=0;i<nv2;i++){Vx2[i]=dV2*i;}//  printf("\n Vxe[%i]=%f", i, Vxe[i]);} //redefine the velocity grid
+		for(i=0;i<nv2y;i++){Vy2[i]=Vz2[i]=dV2*(i-nv2+1);}// printf("\n Vye[%i]=%f", i, Vye[i]);}
+		refine(F2, nv2); //refine the PDF on the new grid
+		dumpdist(); //save the new PDF
+		ref=fopen("refinement.dat","a"); //report the refinement 
+		fprintf(ref,"\n Adaptive mesh refinement invoked at t = %f, step = %i", t, step);
+		fprintf(ref,"\n T2 = %f before the refinement, T2 = %f, after the refinement", T2, 3.*T2);
+		T2=T2*3.; //redefine the new average temperature
+		fclose(ref); //release the handle of the report file
+	}
+	#endif
+	
+	#if defined(_3POP)
+	if(ave(t3x)+ave(t3y)+ave(t3z)>9.*T3&&T3<10.){ //if the average temperature increases by 3 
+		dumpdist(); //save the old PDFs
+		dV3=.5*dV3; //printf("\n dVe=%f",  dVe); //redefine the grid size
+		for(i=0;i<nv3;i++){Vx3[i]=dV3*i;}//  printf("\n Vxe[%i]=%f", i, Vxe[i]);} //redefine the velocity grid
+		for(i=0;i<nv3y;i++){Vy3[i]=Vz3[i]=dV3*(i-nv3+1);}// printf("\n Vye[%i]=%f", i, Vye[i]);}
+		refine(F3, nv3); //refine the PDF on the new grid
+		dumpdist(); //save the new PDF
+		ref=fopen("refinement.dat","a"); //report the refinement 
+		fprintf(ref,"\n Adaptive mesh refinement invoked at t = %f, step = %i", t, step);
+		fprintf(ref,"\n T3 = %f before the refinement, T3 = %f, after the refinement", T3, 3.*T3);
+		T3=T3*3.; //redefine the new average temperature
+		fclose(ref); //release the handle of the report file
+	}
+	#endif
+	
+	printf("\n step %i AB4 complete in %1.3e sec", step, zeit());
+
+	#if defined(_1POP)
+	if(fabs(ave(rhoe)-n1)>.01*n1){printf("\n density conservation violated! \n"); exit(1);}
+	#elif defined(_2POP)
+	if(fabs(ave(rhoe)-n1-n2)>.01*(n1+n2)){printf("\n density conservation violated! \n"); exit(1);}
+	#elif defined(_3POP)
+	if(fabs(ave(rhoe)-n1-n2-n3)>.01*(n1+n2+n3)){printf("\n density conservation violated! \n"); exit(1);}
+	#endif
+	
+	//printf("\n total runtime to current step is %1.3e sec", runtime(1));
+	#if defined(_OPENMP)
+	if(runtime(1)>86100){ //86100 sec termination for 24-hour runs!!!
+	zeit();
+	printf("\n total runtime is %d sec, dumping the data for a restarting point \n", runtime(1));
+	dump=fopen(tag,"wb"); dumpall(dump); //fclose(dump); 
+	printf("\n dumping complete in %1.3e sec", zeit());
+	exit(2);}
+	#endif
+	}
+	#else
+	//Adams-Bashforth inegration with moving frame of reference
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){F0[i]=F1[i];}	
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){F0[i]=F1[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){F0[i]=F1[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){F30[i]=F3[i];}	
+	#endif
+	for(i=0;i<nr;i++){Ay0[i]=Ay[i]; Az0[i]=Az[i];}
+	integrateRK4(); t+=dt; step++; 
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF4[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF4[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF24[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF4[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF24[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF34[i]=F3[i]-F30[i]; F30[i]=F3[i];}	
+	#endif
+	
+	for(i=0;i<nr;i++){dAy4[i]=Ay[i]-Ay0[i]; dAz4[i]=Az[i]-Az0[i];}
+	integrateRK4(); t+=dt; step++;
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF3[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF3[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF23[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF3[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF23[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF33[i]=F3[i]-F30[i]; F30[i]=F3[i];}	
+	#endif
+
+	for(i=0;i<nr;i++){dAy3[i]=Ay[i]-Ay0[i]; dAz3[i]=Az[i]-Az0[i];}
+	integrateRK4(); t+=dt; step++;
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF2[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF2[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF22[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF2[i]=F1[i]-F0[i]; F0[i]=F1[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF22[i]=F2[i]-F20[i]; F20[i]=F2[i];}	
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF32[i]=F3[i]-F30[i]; F30[i]=F3[i];}	
+	#endif
+
+	for(i=0;i<nr;i++){dAy2[i]=Ay[i]-Ay0[i]; dAz2[i]=Az[i]-Az0[i];}
+	integrateRK4(); t+=dt; step++;
+	if(step%histstep==0){moments2(); histdata();}
+	if(step%pdfstep==0){dumpdist();} //save the PDF
+	if(step%savestep==0){dumpdata();} //save the fields
+	printf("\n step %i RK4 complete in %1.3e sec", step, zeit());
+	//this is the first Adams-Bashforth time advancement
+
+	#if defined(_1POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF1[i]=F1[i]-F0[i]; F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+	#elif defined(_2POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF1[i]=F1[i]-F0[i]; F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF21[i]=F2[i]-F20[i]; F2[i]+=B1*dF21[i]+B2*dF22[i]+B3*dF23[i]+B4*dF24[i];}
+	#elif defined(_3POP)
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n11;i++){dF1[i]=F1[i]-F0[i]; F1[i]+=B1*dF1[i]+B2*dF2[i]+B3*dF3[i]+B4*dF4[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n21;i++){dF21[i]=F2[i]-F20[i]; F2[i]+=B1*dF21[i]+B2*dF22[i]+B3*dF23[i]+B4*dF24[i];}
+		#pragma omp parallel for schedule(static) private(i)
+		for(i=0;i<n31;i++){dF31[i]=F3[i]-F30[i]; F3[i]+=B1*dF31[i]+B2*dF32[i]+B3*dF33[i]+B4*dF34[i];}
+	#endif
+
+	for(i=0;i<nr;i++){dAy1[i]=Ay[i]-Ay0[i]; dAz1[i]=Az[i]-Az0[i];  
+		Ay[i]+=B1*dAy1[i]+B2*dAy2[i]+B3*dAy3[i]+B4*dAy4[i]; 
+		Az[i]+=B1*dAz1[i]+B2*dAz2[i]+B3*dAz3[i]+B4*dAz4[i];}
+
+	while(step<=endstep){
+    t+=dt; step++; integrateAB4();
+
+	if(step%histstep==0){moments2(); histdata();}
+    if(step%pdfstep==0){dumpdist();} //save the PDF
+    if(step%savestep==0){dumpdata();} //save the fields
+	
+	if(ave(t1x)+ave(t1y)+ave(t1z)>9.*T1&&T1<10.){ //if the average temperature increases by 3 
+		dumpdist(); //save the old PDFs
+		dV1=.5*dV1; //printf("\n dVe=%f",  dVe); //redefine the grid size
+		for(i=0;i<nv1;i++){Vx1[i]=dV1*i;}//  printf("\n Vxe[%i]=%f", i, Vxe[i]);} //redefine the velocity grid
+		for(i=0;i<nv1y;i++){Vy1[i]=Vz1[i]=dV1*(i-nv1+1);}// printf("\n Vye[%i]=%f", i, Vye[i]);}
+		refine(F1, nv1); //refine the PDF on the new grid
+		dumpdist(); //save the new PDF
+		ref=fopen("refinement.dat","a"); //report the refinement 
+		fprintf(ref,"\n Adaptive mesh refinement invoked at t = %f, step = %i", t, step);
+		fprintf(ref,"\n T1 = %f before the refinement, T1 = %f, after the refinement", T1, 3.*T1);
+		T1=T1*3.; //redefine the new average temperature
+		fclose(ref); //release the handle of the report file
+	}
+	#if defined(_2POP) || defined(_3POP)
+	if(ave(t2x)+ave(t2y)+ave(t2z)>9.*T2&&T2<10.){ //if the average temperature increases by 3 
+		dumpdist(); //save the old PDFs
+		dV2=.5*dV2; //printf("\n dVe=%f",  dVe); //redefine the grid size
+		for(i=0;i<nv2;i++){Vx2[i]=dV2*i;}//  printf("\n Vxe[%i]=%f", i, Vxe[i]);} //redefine the velocity grid
+		for(i=0;i<nv2y;i++){Vy2[i]=Vz2[i]=dV2*(i-nv2+1);}// printf("\n Vye[%i]=%f", i, Vye[i]);}
+		refine(F2, nv2); //refine the PDF on the new grid
+		dumpdist(); //save the new PDF
+		ref=fopen("refinement.dat","a"); //report the refinement 
+		fprintf(ref,"\n Adaptive mesh refinement invoked at t = %f, step = %i", t, step);
+		fprintf(ref,"\n T2 = %f before the refinement, T2 = %f, after the refinement", T2, 3.*T2);
+		T2=T2*3.; //redefine the new average temperature
+		fclose(ref); //release the handle of the report file
+	}
+	#endif
+	
+	#if defined(_3POP)
+	if(ave(t3x)+ave(t3y)+ave(t3z)>9.*T3&&T3<10.){ //if the average temperature increases by 3 
+		dumpdist(); //save the old PDFs
+		dV3=.5*dV3; //printf("\n dVe=%f",  dVe); //redefine the grid size
+		for(i=0;i<nv3;i++){Vx3[i]=dV3*i;}//  printf("\n Vxe[%i]=%f", i, Vxe[i]);} //redefine the velocity grid
+		for(i=0;i<nv3y;i++){Vy3[i]=Vz3[i]=dV3*(i-nv3+1);}// printf("\n Vye[%i]=%f", i, Vye[i]);}
+		refine(F3, nv3); //refine the PDF on the new grid
+		dumpdist(); //save the new PDF
+		ref=fopen("refinement.dat","a"); //report the refinement 
+		fprintf(ref,"\n Adaptive mesh refinement invoked at t = %f, step = %i", t, step);
+		fprintf(ref,"\n T3 = %f before the refinement, T3 = %f, after the refinement", T3, 3.*T3);
+		T3=T3*3.; //redefine the new average temperature
+		fclose(ref); //release the handle of the report file
+	}
+	#endif
+	
+	printf("\n step %i AB4 complete in %1.3e sec", step, zeit());
+
+	#if defined(_1POP)
+	if(fabs(ave(rhoe)-n1)>.01*n1){printf("\n density conservation violated! \n"); exit(1);}
+	#elif defined(_2POP)
+	if(fabs(ave(rhoe)-n1-n2)>.01*(n1+n2)){printf("\n density conservation violated! \n"); exit(1);}
+	#elif defined(_3POP)
+	if(fabs(ave(rhoe)-n1-n2-n3)>.01*(n1+n2+n3)){printf("\n density conservation violated! \n"); exit(1);}
+	#endif
+	
+	//printf("\n total runtime to current step is %1.3e sec", runtime(1));
+	#if defined(_OPENMP)
+	if(runtime(1)>86100){ //86100 sec termination for 24-hour runs!!!
+	zeit();
+	printf("\n total runtime is %d sec, dumping the data for a restarting point \n", runtime(1));
+	dump=fopen(tag,"wb"); dumpall(dump); //fclose(dump); 
+	printf("\n dumping complete in %1.3e sec", zeit());
+	exit(2);}
+	#endif
+	}
+	#endif
+#endif
+
+#if !defined(_OPENMP)
+dump=fopen(tag,"wb"); dumpall(dump);
+#endif
 printf("\n\n Simulation complete \n\n");
 }
