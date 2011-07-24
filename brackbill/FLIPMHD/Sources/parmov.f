@@ -73,9 +73,11 @@
 !
       call celstep(iwid,jwid,kwid,ijkstep)
 !
+     parcount=0
       do 1111 n=1,ncells
          ijk=ijkcell(n)
          if(iphead(ijk).gt.0) then
+     parcount=parcount+number(ijk)
 !
 !     normalize the contribution from resistive diffusion
 !
@@ -214,6 +216,7 @@
 !     update magnetic moment
 !     include contribution of resistive diffusion
 !
+                ep(np)=ep(np)+mass(np)*pdv(ijk)
               mupx(np)=mupx(np)+mass(np)*dbvx(ijk)
               mupy(np)=mupy(np)+mass(np)*dbvy(ijk)
               mupz(np)=mupz(np)+mass(np)*dbvz(ijk)
@@ -276,7 +279,10 @@
 
 !
              do 350 ll=1,27
-                ep(np)=ep(np)+mass(np)*wate(n,ll)*pdv(ijk+ijkstep(ll))
+          !!!!      ep(np)=ep(np)+mass(np)*wate(n,ll)*pdv(ijk+ijkstep(ll))
+          !!!!   mupx(np)=mupx(np)+mass(np)*wate(n,ll)*dbvx(ijk+ijkstep(ll))
+          !!!!    mupy(np)=mupy(np)+mass(np)*wate(n,ll)*dbvy(ijk+ijkstep(ll))
+          !!!!    mupz(np)=mupz(np)+mass(np)*wate(n,ll)*dbvz(ijk+ijkstep(ll))
   350        continue
 !
 !     calculate new natural coordinates for the particle

@@ -38,7 +38,7 @@ c     return
 c read clock and write time difference from last clock initialization
 c get current system tick count
 c  10 nclock = TickCount()
-c     time = float(nclock - jclock)/60.
+c     time = real(nclock - jclock)/60.
 c     write (6,91) chr, time
 c     return
 c     end

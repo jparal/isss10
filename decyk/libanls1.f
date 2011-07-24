@@ -1,6 +1,6 @@
 c library for simulation post-processors
 c copyright 1990, regents of the university of california
-c update: june 29, 2009
+c update: july 18, 2011
       subroutine MENUCR1(code,cp,ip,ap,nc,ncc,nci,ncr,istyle,irc)
 c this program sets up menu to enter parameters for correlation program
 c the parameter names must be in table code (nc of them), and created
@@ -316,10 +316,10 @@ c space = vertical spacing between characters
      7' NTD = NUMBER OF POINTS USED IN TIME DISPLAY    ',
      8' NTC = NUMBER OF LAG TIMES IN CORRELATION       ',
      9' NPLOT = NUMBER OF PLOTS PER PAGE               ',
-     a' WMIN = MINIMUM FREQUENCY USED IN POWER SPECTRUM',
-     b' WMAX = MAXIMUM FREQUENCY USED IN POWER SPECTRUM',
-     c' DW = FREQUENCY INCREMENT USED IN POWER SPECTRUM',
-     d' CMAP = (0,1) = (NO,YES) DISPLAY SPECTRUM MAP   ',
+     a' DMAP = (0,1) = (NO,YES) DISPLAY SPECTRUM MAP   ',
+     b' WMIN = MINIMUM FREQUENCY USED IN POWER SPECTRUM',
+     c' WMAX = MAXIMUM FREQUENCY USED IN POWER SPECTRUM',
+     d' DW = FREQUENCY INCREMENT USED IN POWER SPECTRUM',
      e' FMIN = MINIMUM CUTOFF FOR LOG                  '/
       if ((nvar.lt.1).or.(nvar.gt.nhelp)) return
       ay = ay - space
@@ -342,10 +342,10 @@ c space = vertical spacing between characters
      8' NTC = NUMBER OF LAG TIMES IN CORRELATION       ',
      9' NPLOT = NUMBER OF PLOTS PER PAGE               ',
      a' NVF = VECTOR FIELD (A=1,E=2,B=3)               ',
-     b' WMIN = MINIMUM FREQUENCY USED IN POWER SPECTRUM',
-     c' WMAX = MAXIMUM FREQUENCY USED IN POWER SPECTRUM',
-     d' DW = FREQUENCY INCREMENT USED IN POWER SPECTRUM',
-     e' CMAP = (0,1) = (NO,YES) DISPLAY SPECTRUM MAP   ',
+     b' DMAP = (0,1) = (NO,YES) DISPLAY SPECTRUM MAP   ',
+     c' WMIN = MINIMUM FREQUENCY USED IN POWER SPECTRUM',
+     d' WMAX = MAXIMUM FREQUENCY USED IN POWER SPECTRUM',
+     e' DW = FREQUENCY INCREMENT USED IN POWER SPECTRUM',
      f' FMIN = MINIMUM CUTOFF FOR LOG                  '/
       if ((nvar.lt.1).or.(nvar.gt.nhelp)) return
       ay = ay - space
@@ -526,7 +526,7 @@ c ntc2 = dimension of output array c, ntc2 >= 2*ntc
       do 20 i = it2, nft
       g(i) = zero
    20 continue
-      zum1 = zum1/float(nt)
+      zum1 = zum1/real(nt)
       do 30 i = 1, nt
       g(i) = g(i) - zum1
    30 continue
@@ -537,14 +537,14 @@ c ntc2 = dimension of output array c, ntc2 >= 2*ntc
    40 continue
       isign = -1
       call FFT1C(g,isign,mixup,sct,inft,nft,nfth)
-c     at2 = float(nt)/real(g(1))
+c     at2 = real(nt)/real(g(1))
       at2 = 1.
       do 50 i = 1, ntc
-      at1 = at2/float(nt - i + 1)
+      at1 = at2/real(nt - i + 1)
       c(i) = at1*real(g(i))
    50 continue
       do 60 i = 1, ntc
-      at1 = at2/float(nt - i + 1)
+      at1 = at2/real(nt - i + 1)
       c(i+ntc) = at1*aimag(g(i))
    60 continue
       return
@@ -565,7 +565,7 @@ c nt2 = dimension of input array, nts >= 2*nt
 c iw2 = dimension of power spectrum array iw2 >= 2*iw
       double precision at1,at2,at3,sum1,sum2,sum3,cwdt,swdt
       dimension f(nt2), wm(iw), p(iw2)
-      anl = 1./float(nt)
+      anl = 1./real(nt)
       do 20 k = 1, iw
       k1 = k + iw
       at3 = wm(k)*t0
@@ -604,7 +604,7 @@ c it is an sft (slow fourier transform), but you can pick your frequency
       double precision at1,at2,at3,sum1,sum2,sum3,wt0,wdt
       dimension f(nt2), wm(iw), p(iw2)
       nt = nt2/2
-      anl = 1./float(nt)
+      anl = 1./real(nt)
       do 20 k = 1, iw
       k1 = k + iw
       wt0 = wm(k)*t0
@@ -615,7 +615,7 @@ c it is an sft (slow fourier transform), but you can pick your frequency
       sum4 = 0.
       do 10 i = 1, nt
       i1 = i + nt
-      at3 = wt0 + wdt*float(i - 1)
+      at3 = wt0 + wdt*real(i - 1)
       at1 = dcos(at3)
       at2 = dsin(at3)
       sum1 = sum1 + f(i)*at1
@@ -651,10 +651,10 @@ c local data
       nxh = nx/2
       if ((modesx.le.0).or.(modesx.gt.(nxh+1))) return
       jmx = min0(modesx,nxh)
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, jmx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       vpk(j) = dkx
    10 continue
       vpk(1) = 0.0
@@ -713,13 +713,13 @@ c modesxd = second dimension of output array pott, modesxd >= modesx
       nxh = nx/2
       if ((modesx.le.0).or.(modesx.gt.(nxh+1))) return
       jmx = min0(modesx,nxh)
-      dnx = 6.28318530717959/float(nx)
-      anorm = float(nx)/affp
+      dnx = 6.28318530717959/real(nx)
+      anorm = real(nx)/affp
       wp = 0.0d0
 c calculate the energy per mode
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, jmx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       zt1 = dkx*cmplx(aimag(pott(j)),-real(pott(j)))
       we = anorm*(zt1*conjg(zt1))
       potb(j) = we
@@ -784,13 +784,13 @@ c modesxd = second dimension of output array vpott, modesxd >= modesx
       nxh = nx/2
       if ((modesx.le.0).or.(modesx.gt.(nxh+1))) return
       jmx = min0(modesx,nxh)
-      dnx = 6.28318530717959/float(nx)
-      anorm = float(nx)/(affp*ci*ci)
+      dnx = 6.28318530717959/real(nx)
+      anorm = real(nx)/(affp*ci*ci)
       wp = 0.0d0
 c calculate the energy per mode
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, jmx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       zt1 = cmplx(-aimag(vpott(2,j)),real(vpott(2,j)))
       zt2 = cmplx(-aimag(vpott(1,j)),real(vpott(1,j)))
       zt3 = dkx*zt2
@@ -829,7 +829,7 @@ c modesxd = second dimension of output array vpotp, modesxd >= modesx
       nxh = nx/2
       if ((modesx.le.0).or.(modesx.gt.(nxh+1))) return
       jmx = min0(modesx,nxh)
-      anorm = float(nx)/affp
+      anorm = real(nx)/affp
       wp = 0.0d0
 c calculate the energy per mode
 c mode numbers 0 < kx < nx/2

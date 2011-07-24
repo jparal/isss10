@@ -7,7 +7,7 @@
 ! character*8 cp(ncc), where ncc is the number of character parameters
 ! dimension ip(nci), ap(ncr)
 ! where nci, ncr are the number of integer and real parameters
-! update: august 8, 2009
+! update: july 18, 2011
       program vspectrum1
       use globals, only: LINEAR, QUADRATIC
       use fft1d
@@ -15,7 +15,7 @@
       use diag1d
       implicit none
       integer, parameter :: ncc=0, nci=10, ncr=4, nc=ncc+nci+ncr, ns=2
-      integer :: batch, ntd
+      integer :: batch
       integer :: nda, ndj, nde, nrec, modesx, lts, its, nts
       integer :: kxmax, kxmin, kxmx, kxmn
       integer :: ntq, ntc, nplot, nvf, istyle, itwo, iwmax
@@ -128,9 +128,9 @@
       data lts,its,nts /1,1,1/
 ! kxmin,kxmax = initial mode number and number of modes
       data kxmin,kxmax /0,1/
-! ntd = number of points in time display
+! ntq = number of points in time display
 ! ntc =  number of lag times in correlation
-      data ntd, ntc /1,0/
+      data ntq, ntc /1,0/
 ! wmin,wmax,dw = initial, final frequency and increment
       data wmin,wmax,dw /0.,2.0,.01/
 ! nplot = number of plots per page
@@ -151,6 +151,7 @@
       if (irc==0) then
          read (8,inspect1,iostat=irc)
          if ((irc==0).and.(batch/=0)) chr = dmetaf
+         ntq = ntd
          rewind 8
       endif
 ! get file name
@@ -172,9 +173,9 @@
             if (nda==0) then
                nodesx = modesxa
                ftname = faname
-!           else if (ndj==0) then
-!              nodesx = modesxj
-!              ftname = fjname; cdrun0 = trim(cdrun0)//'j'
+            else if (ndj==0) then
+               nodesx = modesxj
+               ftname = fjname; cdrun0 = trim(cdrun0)//'j'
             else if (nde==0) then
                nodesx = modesxe
                ftname = fename; cdrun0 = trim(cdrun0)//'r'
@@ -200,10 +201,10 @@
          endif
          read (19,vpot1d,iostat=nda)
          rewind 19
-         ndj = 1
-!        read (19,vcur1d,iostat=ndj)
-!        rewind 19
-         nde = 1
+!        ndj = 1
+         read (19,vcur1d,iostat=ndj)
+         rewind 19
+!        nde = 1
          read (19,em1d,iostat=nde)
          rewind 19
          if (((nda==0).and.(ndj==0)).or.((nda==0).and.(nde==0)).or.((ndj&
@@ -279,25 +280,25 @@
          read (19,vpot1d,iostat=nda)
          modesx = modesxa
          nrec = narec
-         fname = faname; ftname = 'vpot1out.'//cdrun
-         bnorm = float((2**indx))/ceng
-!     else if (ndj==0) then
-!        read (19,vcur1d,iostat=ndj)
-!        modesx = modesxj
-!        nrec = njrec; nta = ntj
-!        cdrun = trim(cdrun)//'j'
-!        fname = fjname; ftname = 'vcur2out.'//cdrun
-!        bnorm = 1.0
+         fname = faname; ftname = 'vpot1out.'//trim(cdrun)
+         bnorm = real((2**indx))/ceng
+      else if (ndj==0) then
+         read (19,vcur1d,iostat=ndj)
+         modesx = modesxj
+         nrec = njrec; nta = ntj
+         cdrun = trim(cdrun)//'j'
+         fname = fjname; ftname = 'vcur1out.'//trim(cdrun)
+         bnorm = 1.0
       else if (nde==0) then
          read (19,em1d,iostat=nde)
          modesx = modesxe
          nrec = nerec; nta = nte
          cdrun = trim(cdrun)//'r'
-         fname = fename; ftname = 'vpotr2out.'//cdrun
-         bnorm = float((2**indx))/ceng
+         fname = fename; ftname = 'vpotr2out.'//trim(cdrun)
+         bnorm = real((2**indx))/ceng
       endif
       if (nf==2) cdrun = trim(cdrun)//'-'//trim(cdrun0)
-      runid = 'vspectrum.'//cdrun
+      runid = 'vspectrum.'//trim(cdrun)
 ! text output file
       open(unit=18,file=trim(ftname),form='formatted',status='replace')
 ! echo input
@@ -512,7 +513,7 @@
             label = ' RADIATIVE MAGNETIC FIELD ENERGY VERSUS TIME'
          endif
          chr = ' RUNID='
-         chr = trim(chr)//cdrun
+         chr = trim(chr)//trim(cdrun)
          call DISPS(potc,label,time(1),time(nt),999,2,nt,chr,irc)
          if (irc==1) go to 200
 ! display transverse electric energy
@@ -522,12 +523,12 @@
             label = ' TRANSVERSE RADIATIVE ELECTRIC FIELD ENERGY VERSUS &
      &TIME'
          endif
-         chr = ' RUNID='//cdrun
+         chr = ' RUNID='//trim(cdrun)
          call DISPS(potc(mta+2),label,time(2),time(nt),999,2,nt-1,chr,ir&
      &c)
          if (irc==1) go to 200
 ! write out energies versus time
-         ftname = 'energyt.'//cdrun
+         ftname = 'energyt.'//trim(cdrun)
          open(unit=20,file=trim(ftname),form='formatted',status='replace&
      &')
          write (20,*) '#time wb wet'
@@ -539,7 +540,7 @@
          vpots = vpots/real(nt)
          sum1 = sum1/real(nt)
          write (ftname,991) sum1
-         chr = ' RUNID='//cdrun
+         chr = ' RUNID='//trim(cdrun)
          chr = trim(ftname)//chr
          if (nda==0) then
             label = ' TIME-AVERAGED MAGNETIC ENERGY VERSUS |K|'
@@ -554,7 +555,7 @@
          vpotr = vpotr/real(nt)
          sum2 = sum2/real(nt)
          write (ftname,991) sum2
-         chr = ' RUNID='//cdrun
+         chr = ' RUNID='//trim(cdrun)
          chr = trim(ftname)//chr
          if (nda==0) then
             label = ' TIME-AVERAGED TRANSVERSE ELECTRIC ENERGY VERSUS |K&
@@ -567,7 +568,7 @@
      &rc)
          if (irc==1) go to 200
 ! write out energies versus abs(k)
-         ftname = 'energyk.'//cdrun
+         ftname = 'energyk.'//trim(cdrun)
          open(unit=20,file=trim(ftname),form='formatted',status='replace&
      &')
          write (20,*) '#k wb wet'
@@ -610,23 +611,23 @@
       allocate(ps(2*iwmax),pcs(2*iwmax))
       allocate(vpkw(modesx,2*iwmax,ndim),vpckw(modesx,2*iwmax,ndim))
 ! open file for spectrum versus omega
-      ftname = 'spectrumw.'//cdrun
+      ftname = 'spectrumw.'//trim(cdrun)
       open(unit=22,file=trim(ftname),form='formatted',status='replace')
       write (22,*) '#spectrum versus omega'
 ! open file for  spectrum versus k
-      ftname = 'spectrumk.'//cdrun
+      ftname = 'spectrumk.'//trim(cdrun)
       open(unit=23,file=trim(ftname),form='formatted',status='replace')
       write (23,*) '#spectrum versus k'
 ! open file for  correlated spectrum versus omega
-      ftname = 'cspectrumw.'//cdrun
+      ftname = 'cspectrumw.'//trim(cdrun)
       open(unit=24,file=trim(ftname),form='formatted',status='replace')
       write (24,*) '#correlated spectrum versus omega'
 ! open file for  correlated spectrum versus k
-      ftname = 'cspectrumk.'//cdrun
+      ftname = 'cspectrumk.'//trim(cdrun)
       open(unit=25,file=trim(ftname),form='formatted',status='replace')
       write (25,*) '#correlated spectrum versus k'
 ! write out light wave dispersion relation
-      ftname = 'lightw.'//cdrun
+      ftname = 'lightw.'//trim(cdrun)
       open(unit=26,file=trim(ftname),form='formatted',status='replace')
       at1 = (vpk(modesx)/ci)/100
       write (26,*) '#k w'
@@ -848,21 +849,21 @@
          do n = 1, ndim
          write (c,'(":",i1)') n
          if (nda==0) then
-            chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//cdrun
+            chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
          else if (ndj==0) then
-            chr = ' ION CURRENT'//c//', W > 0, RUNID='//cdrun
+            chr = ' ION CURRENT'//c//', W > 0, RUNID='//trim(cdrun)
          else if (nde==0) then
-            chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//cdrun
+            chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
          endif
          call CARPETL(vpkw(1,1,n),label,at1,at2,wm(1),wm(iw),999,1,jk,iw&
      &,modesx,chr,nl,irc)
          if ((irc==1).or.(irc==3)) go to 50
          if (nda==0) then
-            chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//cdrun
+            chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
          else if (ndj==0) then
-            chr = ' ION CURRENT'//c//', W < 0, RUNID='//cdrun
+            chr = ' ION CURRENT'//c//', W < 0, RUNID='//trim(cdrun)
          else if (nde==0) then
-            chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//cdrun
+            chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
          endif
          call CARPETL(vpkw(1,iw1,n),label,at1,at2,wm(1),wm(iw),999,1,jk,&
      &iw,modesx,chr,nl,irc)
@@ -880,21 +881,21 @@
          enddo
          enddo
          if (nda==0) then
-            chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//cdrun
+            chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
          else if (ndj==0) then
-            chr = ' ION CURRENT'//c//', W > 0, RUNID='//cdrun
+            chr = ' ION CURRENT'//c//', W > 0, RUNID='//trim(cdrun)
          else if (nde==0) then
-            chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//cdrun
+            chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
          endif
          call CARPETL(vpkw(1,1,n),label,at1,at2,wm(1),wm(iw),999,2,jk,iw&
      &,modesx,chr,nl,irc)
          if ((irc==1).or.(irc==3)) go to 50
          if (nda==0) then
-            chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//cdrun
+            chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
          else if (ndj==0) then
-            chr = ' ION CURRENT'//c//', W < 0, RUNID='//cdrun
+            chr = ' ION CURRENT'//c//', W < 0, RUNID='//trim(cdrun)
          else if (nde==0) then
-            chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//cdrun
+            chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
          endif
          call CARPETL(vpkw(1,iw1,n),label,at1,at2,wm(1),wm(iw),999,2,jk,&
      &iw,modesx,chr,nl,irc)
@@ -922,13 +923,13 @@
       enddo
       sum1 = sum1 + sum2 - ps(iw+1)
       write (ftname,992) sum1
-      label = ' INTEGRATED SPECTRUM VERSUS OMEGA'//ftname
+      label = ' INTEGRATED SPECTRUM VERSUS OMEGA'//trim(ftname)
       if (nda==0) then
-         chr = trim(cnvf(nvf))//', RUNID='//cdrun
+         chr = trim(cnvf(nvf))//', RUNID='//trim(cdrun)
       else if (ndj==0) then
-         chr = ' ION CURRENT, RUNID='//cdrun
+         chr = ' ION CURRENT, RUNID='//trim(cdrun)
       else if (nde==0) then
-         chr = trim(crnvf(nvf))//', RUNID='//cdrun
+         chr = trim(crnvf(nvf))//', RUNID='//trim(cdrun)
       endif
       ncd = 58
       call DISPR(ps,label,wm(1),wm(iw),999,1,0,iw,iw,itwo,chr(1:ncd),chr&
@@ -973,21 +974,21 @@
             do n = 1, ndim
             write (c,'(":",i1)') n
             if (nda==0) then
-               chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//cdrun
+               chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
             else if (ndj==0) then
-               chr = ' ION CURRENT'//c//', W > 0, RUNID='//cdrun
+               chr = ' ION CURRENT'//c//', W > 0, RUNID='//trim(cdrun)
             else if (nde==0) then
-               chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//cdrun
+               chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
             endif
             call CARPETL(vpckw(1,1,n),label,at1,at2,wm(1),wm(iw),999,1, &
      &jk,iw,modesx,chr,nl,irc)
             if ((irc==1).or.(irc==3)) go to 50
             if (nda==0) then
-               chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//cdrun
+               chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
             else if (ndj==0) then
-               chr = ' ION CURRENT'//c//', W < 0, RUNID='//cdrun
+               chr = ' ION CURRENT'//c//', W < 0, RUNID='//trim(cdrun)
             else if (nde==0) then
-               chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//cdrun
+               chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
             endif
             call CARPETL(vpckw(1,iw1,n),label,at1,at2,wm(1),wm(iw),999,1&
      &,jk,iw,modesx,chr,nl,irc)
@@ -1005,21 +1006,21 @@
             enddo
             enddo
             if (nda==0) then
-               chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//cdrun
+               chr = trim(cnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
             else if (ndj==0) then
-               chr = ' ION CURRENT'//c//', W > 0, RUNID='//cdrun
+               chr = ' ION CURRENT'//c//', W > 0, RUNID='//trim(cdrun)
             else if (nde==0) then
-               chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//cdrun
+               chr = trim(crnvf(nvf))//c//', W > 0, RUNID='//trim(cdrun)
             endif
             call CARPETL(vpckw(1,1,n),label,at1,at2,wm(1),wm(iw),999,2, &
      &jk,iw,modesx,chr,nl,irc)
             if ((irc==1).or.(irc==3)) go to 50
             if (nda==0) then
-               chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//cdrun
+               chr = trim(cnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
             else if (ndj==0) then
-               chr = ' ION CURRENT'//c//', W < 0, RUNID='//cdrun
+               chr = ' ION CURRENT'//c//', W < 0, RUNID='//trim(cdrun)
             else if (nde==0) then
-               chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//cdrun
+               chr = trim(crnvf(nvf))//c//', W < 0, RUNID='//trim(cdrun)
             endif
             call CARPETL(vpckw(1,iw1,n),label,at1,at2,wm(1),wm(iw),999,2&
      &,jk,iw,modesx,chr,nl,irc)
@@ -1042,13 +1043,14 @@
          enddo
          sum1 = sum1 + sum2 - pcs(iw+1)
          write (ftname,992) sum1
-         label = ' INTEGRATED CORRELATION SPECTRUM VS OMEGA'//ftname
+         label = ' INTEGRATED CORRELATION SPECTRUM VS OMEGA'//trim(ftnam&
+     &e)
          if (nda==0) then
-            chr = trim(cnvf(nvf))//' CORRELATION, RUNID='//cdrun
+            chr = trim(cnvf(nvf))//' CORRELATION, RUNID='//trim(cdrun)
          else if (ndj==0) then
-            chr = 'ION CURRENT CORRELATION, RUNID='//cdrun
+            chr = 'ION CURRENT CORRELATION, RUNID='//trim(cdrun)
          else if (nde==0) then
-            chr = trim(crnvf(nvf))//' CORRELATION, RUNID='//cdrun
+            chr = trim(crnvf(nvf))//' CORRELATION, RUNID='//trim(cdrun)
          endif
          ncd = 58
          call DISPR(pcs,label,wm(1),wm(iw),999,1,0,iw,iw,itwo,chr(1:ncd)&
@@ -1131,11 +1133,12 @@
 ! time display of raw data
       if (ntd > 0) then
          if (nda==0) then
-            label = trim(cnvf(nvf))//' VERSUS TIME, RUNID='//cdrun
+            label = trim(cnvf(nvf))//' VERSUS TIME, RUNID='//trim(cdrun)
          else if (ndj==0) then
-            label = 'ION CURRENT VERSUS TIME, RUNID='//cdrun
+            label = 'ION CURRENT VERSUS TIME, RUNID='//trim(cdrun)
          else if (nde==0) then
-            label = trim(crnvf(nvf))//' VERSUS TIME, RUNID='//cdrun
+            label = trim(crnvf(nvf))//' VERSUS TIME, RUNID='//trim(cdrun&
+     &)
          endif
          write (chr,996) n, j1, dkx
          ncd = 26
@@ -1175,7 +1178,7 @@
             label = ' LN |'//trim(adjustl(crnvf(nvf)))//'| VERSUS TIME, &
      &RUNID='
          endif
-         label = trim(label)//cdrun
+         label = trim(label)//trim(cdrun)
          write (chr,996) n, j1, dkx
          ncd = 26
          call DISPS(g,label,time(1),time(ntd),999,2,ntd,chr(1:ncd),irc)
@@ -1187,11 +1190,13 @@
          call SPECT(potc,wm,p,tt0,dts,nts,iw,nts2,iw2)
 ! power spectrum of raw data
          if (nda==0) then
-            label = trim(cnvf(nvf))//' VERSUS OMEGA, RUNID='//cdrun
+            label = trim(cnvf(nvf))//' VERSUS OMEGA, RUNID='//trim(cdrun&
+     &)
          else if (ndj==0) then
-            label = 'ION CURRENT VERSUS OMEGA, RUNID='//cdrun
+            label = 'ION CURRENT VERSUS OMEGA, RUNID='//trim(cdrun)
          else if (nde==0) then
-            label = trim(crnvf(nvf))//' VERSUS OMEGA, RUNID='//cdrun
+            label = trim(crnvf(nvf))//' VERSUS OMEGA, RUNID='//trim(cdru&
+     &n)
          endif
          write (chr,996) n, j1, dkx
          ncd = 26
@@ -1216,7 +1221,7 @@
             label = trim(srnvf(nvf))//' CORRELATION  VERSUS TIME, RUNID=&
      &'
          endif
-         label = trim(label)//cdrun
+         label = trim(label)//trim(cdrun)
          write (chr,996) n, j1, dkx
          ncd = 26
          call DISPR(potc,label,time(1),time(it1),999,0,0,it1,ntc,itwo,ch&
@@ -1257,7 +1262,7 @@
             label = ' LN |'//trim(adjustl(srnvf(nvf)))//' CORRELATION| V&
      &ERSUS TIME, RUNID='
          endif
-         label = trim(label)//cdrun
+         label = trim(label)//trim(cdrun)
          write (chr,996) n, j1, dkx
          ncd = 26
          call DISPS(g,label,time(1),time(it1),999,2,it1,chr(1:ncd),irc)
@@ -1276,7 +1281,7 @@
             label = trim(srnvf(nvf))//' CORRELATION VERSUS OMEGA, RUNID=&
      &'
          endif
-         label = trim(label)//cdrun
+         label = trim(label)//trim(cdrun)
          write (chr,996) n, j1, dkx
          ncd = 26
          call DISPR(pc,label,wm(1),wm(iw),999,1,0,iw,iw,itwo,chr(1:ncd),&

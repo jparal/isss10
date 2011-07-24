@@ -1,26 +1,28 @@
-      subroutine parcelv
+      subroutine parcelv(is)
 !
       use vast_kind_param, only:  double
       use corgan_com_M, ONLY : itdim
       use cindex_com_M, ONLY :  ncells, nvtx, nsp,   &
         iwid, jwid, kwid
       use numpar_com_M, ONLY : dt
-      use blcom_com_M, ONLY: iphead, iphd2, &
+      use blcom_com_M, ONLY:                &
         ijkcell, ijkvtx, ijkctmp,           &
         mass, pxi, peta, pzta,              &
         up, vp, wp,link, ico,               &
         wate,                               &
-        mv, umom, vmom, wmom, numberv, color
+        mv_s, umom, vmom, wmom, numberv, color
       use Scratch_com_M, ONLY : the, zeta, nu,  &
         mv_tmp, umom_tmp, vmom_tmp, wmom_tmp, numberv_tmp, color_tmp
       use Timing
+      use ParticleLists
       implicit none
 !
+      integer :: is
       real(double) ::     &
                Tstart, Tfinish
 !
       integer :: ijkvstep(8),   &
-        inew, jnew, knew
+        inew, jnew, knew, npar
 !
       real(double) ::    &
          wi, wim, wip,   &
@@ -28,7 +30,7 @@
          wk, wkm, wkp
 !
       real(double) :: parmass, vtxmass
-      integer ::     &
+      integer ::   nptotl,     &
           ijk,l,n,MyThread,     &
           NumThreads,           &
           newcell,newcell_nxt,np
@@ -53,16 +55,12 @@
 !
 !     ********************************************
 !
-      do 25 n=1,nvtx
-      ijk=ijkvtx(n)
-      mv(ijk)=0.0
-      umom(ijk)=0.0
-      vmom(ijk)=0.0
-      wmom(ijk)=0.0
-      numberv(ijk)=0.0d0
-      color(ijk)=0.0d0
-   25 continue
+      do n=1,nvtx
+         ijk=ijkvtx(n)
+         mv_s(ijk,is)=0.0
+      enddo
 !
+      npar=0
 !
 !
       allocate (the(itdim), zeta(itdim), nu(itdim))
@@ -70,25 +68,33 @@
       allocate (numberv_tmp(itdim,8), color_tmp(itdim,8))
 !
 !
+      mv_tmp=0.
+      umom_tmp=0.
+      vmom_tmp=0.
+      wmom_tmp=0.
+      numberv_tmp=0.
+      color_tmp=0.0
 !
 !
       parmass=0.0
+      nptotl=0
       vtxmass=0.
 !
         call OMP_SET_NUM_THREADS(8)
-!$omp parallel shared(NumThreads)
+!$omp parallel shared(NumThreads,is)
       NumThreads=OMP_GET_NUM_THREADS()
       MyThread=OMP_GET_THREAD_NUM() + 1
-!$omp do reduction(+:parmass),  &
+!$omp do reduction(+:parmass,nptotl),  &
 !$omp private(ijk,np,l,inew,jnew,knew),   &
 !$omp private(wi,wim,wip,wj,wjm,wjp,wk,wkm,wkp)
 
       do n=1,ncells
 !
       ijk=ijkcell(n)
-      np=iphead(ijk)
+      np=ipheadS(ijk,is)
       do while (np.gt.0)
 !
+      nptotl=nptotl+1
       inew=int(pxi(np))
       jnew=int(peta(np))
       knew=int(pzta(np))
@@ -147,24 +153,30 @@
     enddo
 !
 !$omp end parallel
-        call OMP_SET_NUM_THREADS(1)
 
+   vtxmass=0.0
+!    do n=1,nvtx
+!       ijk=ijkvtx(n)
+!       vtxmass=vtxmass+mv_tmp(ijk,1)
+!    enddo
         call OMP_SET_NUM_THREADS(8)
 !$omp parallel do private(ijk,l), reduction(+:vtxmass),  &
-!$omp shared(mv,umom,vmom,wmom,numberv,color),    &
+!$omp shared(mv_s,umom,vmom,wmom,numberv,color,is),    &
 !$omp shared(NumThreads)
 
      do n=1,nvtx
        ijk=ijkvtx(n)
+       mv_s(ijk,is)=0.0
        do l=1,NumThreads
-          mv(ijk)=mv(ijk)+mv_tmp(ijk,l)
+          mv_s(ijk,is)=mv_s(ijk,is)+mv_tmp(ijk,l)
+          vtxmass=vtxmass+mv_tmp(ijk,l)
           umom(ijk)=umom(ijk)+umom_tmp(ijk,l)
           vmom(ijk)=vmom(ijk)+vmom_tmp(ijk,l)
           wmom(ijk)=wmom(ijk)+wmom_tmp(ijk,l)
           numberv(ijk)=numberv(ijk)+numberv_tmp(ijk,l)
           color(ijk)=color(ijk)+color_tmp(ijk,l)
        enddo
-       vtxmass=vtxmass+mv(ijk)
+!       vtxmass=vtxmass+mv_s(ijk,is)
      enddo
 !
 !

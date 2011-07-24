@@ -33,7 +33,7 @@
       end do
 !
 !
-      call residue_vtx(srce, phi, Jdu)
+      call residue_vtx(nvtx,ijkvtx,srce, phi, Jdu)
 !
       reps=1.d0/eps
 !

@@ -84,7 +84,7 @@
 !     initial pressure
 !
 !
-      call residue_vtx(    &
+      call residue_vtx(nvtx,ijkvtx,    &
           srce,    &
           phi,residu)
 !
@@ -233,7 +233,7 @@
 !
 !  compute norm of actual residual at end of cycle, ||srce-A.p||
 !
-      call residue_vtx(    &
+      call residue_vtx(nvtx, ijkvtx,    &
           srce,    &
           phi,residu)
 !

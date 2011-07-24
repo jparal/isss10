@@ -47,7 +47,7 @@
 !
       ijk=ijkcell(1)
       wsvis=wate(ijk,1)
-      wsresist=wate(ijk,2)
+      wsresist=wate(ijk,2) 
       wscourant=wate(ijk,3)
       wslagrange=wate(ijk,4)
       do 45 n=2,ncells
@@ -59,7 +59,8 @@
    45 continue
 !     
       dtvis=min(dtvis,0.45/(wsvis+1.e-10))
-      dtresist=min(dtresist,0.45/(wsresist+1.e-1))
+ !     dtresist=min(dtresist,0.45/(wsresist+1.e-1))
+      dtresist=1.d20
       courant=sqrt(wscourant)*dt
       lagrange=-wslagrange*dt
 !

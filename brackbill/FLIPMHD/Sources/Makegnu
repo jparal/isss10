@@ -1,10 +1,11 @@
 # Tunable parameters
 F90= gfortran
 LD= gfortran
-LIBS = # /usr/local/lib/libgomp.a
+LIBS = /usr/local/lib/libgomp.a
+#LIBS = /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin10/4.2.1/x86_64/libgomp.a
 CMD =            xflip
 FFLAGS = -O3 -fopenmp   -ffree-form 
-LDFLAGS = -fopenmp
+#FFLAGS = -O3   -ffree-form 
 #
 # CF		Name of the fortran compiling system to use
 # LDFLAGS	Flags to the loader
@@ -19,8 +20,10 @@ SRCS=   vast_kind_param_M.f  \
         cplot_com_M.f gmres_com_M.f  \
         logical_com_M.f \
         nkmhd_com_M.f nk_com_M.f numpar_com_M.f Scratch_com_M.f   \
+        ParticleLists.f    \
         DXFiles.f Timing.f  \
         accel_3dmhd.f axisavg.f begin.f bcc.f bc_wall.f budget.f celdex.f \
+        bc_field.f   \
         divphi_3dmhd.f  \
         b_vtx.f bc_vtx.f bc_vertex.f bc_periodic.f \
         bc_ghost.f bc_particles.f  bc_scalar.f bc_current.f bc_noslip.f \
@@ -45,10 +48,11 @@ SRCS=   vast_kind_param_M.f  \
         parlocat_cart.f \
         parmov.f parrefl.f parset.f partcles.f\
         poisson_cg.f poisson_vtx.f \
+        ReconnectedFlux.f  \
         residu_3dmhd.f residue_vtx.f stress_3dmhd.f \
         resistive_diff.f \
         rotate.f setzero.f SetZeroVector.f \
-        timstp.f torusbc_scalar.f \
+        timstp.f torusbc_scalar.f torusbcS_scalar.f \
         trilin.f triquad.f triple.f vinit_gmres.f volume_vtx.f\
         vtxindx.f watec.f watev.f weights.f \
         VolumeIntegralC.f  \

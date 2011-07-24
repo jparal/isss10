@@ -48,7 +48,7 @@
    33 continue
 !
 !
-      call residue_vtx(     &
+      call residue_vtx(nvtx, ijkvtx,     &
           srce,     &
           Ax,Ax)
 !

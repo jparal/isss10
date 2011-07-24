@@ -44,7 +44,7 @@ c gks device driver for postscript printer library
 c written by viktor k. decyk, ucla
 c copyright 1997, regents of the university of california
 c version for ibm rs/6000
-c update: november 3, 1997
+c update: july 12, 2011
       block data
       parameter(maxt=3)
       common /gkspsp/ kosv,iwk,idc,iwt,nrtn,itx,ity,kcf,lcl,lcm,lct,lcf,
@@ -361,8 +361,8 @@ c lxm, lym = maximum size of image array
       idcun = 1
       lx = lxm
       ly = lym
-      dcx = float(lx) - 1.
-      dcy = float(ly) - 1.
+      dcx = real(lx) - 1.
+      dcy = real(ly) - 1.
       ierr = 0
       return
       end
@@ -405,8 +405,8 @@ c lxm, lym = maximum size of image array
      2chuv,vpal
       dimension wwnvp(8), dvt(4), trans(8,maxt), chuv(2), vpal(4,256)
 c wwnvp = workstation window and viewport
-      dcx = float(lxm) - 1.
-      dcy = float(lym) - 1.
+      dcx = real(lxm) - 1.
+      dcy = real(lym) - 1.
 c clip to maximum screen size
       wwnvp(5) = amax1(xmin,0.)
       wwnvp(7) = amax1(ymin,0.)
@@ -1080,7 +1080,7 @@ c draw dot
          write (21,92) ix, iy
 c other markers
       else
-         iy = iy - .5*float(is)
+         iy = iy - .5*real(is)
 c draw character string
          write (21,93) ix, iy
          write (21,*) '('//amks(mtc)//') show'
@@ -1846,13 +1846,13 @@ c set screen size
       lx = lxm
       ly = lym
       if (lx.gt.ly) then
-         wwnvp(5) = .5*float(lx - ly)
-         wwnvp(8) = float(ly - 1)
+         wwnvp(5) = .5*real(lx - ly)
+         wwnvp(8) = real(ly - 1)
          wwnvp(6) = wwnvp(5) + wwnvp(8)
          wwnvp(7) = 0.
       else
-         wwnvp(6) = float(lx - 1)
-         wwnvp(7) = .5*float(ly - lx)
+         wwnvp(6) = real(lx - 1)
+         wwnvp(7) = .5*real(ly - lx)
          wwnvp(5) = 0.
          wwnvp(8) = wwnvp(6) + wwnvp(7)
       endif
@@ -2010,11 +2010,11 @@ c color postscript format
       elseif ((iwt.ge.5).and.(iwt.le.8)) then
          it = cgrs
          is = it/256
-         blue = float(it - 256*is)/255.
+         blue = real(it - 256*is)/255.
          it = is/256
-         green = float(is - 256*it)/255.
+         green = real(is - 256*it)/255.
          is = it/256
-         red = float(it - 256*is)/255.
+         red = real(it - 256*is)/255.
          write (21,96) red, green, blue
       endif
       return
@@ -2148,9 +2148,9 @@ c nbit = the number of colors, pixel depth
 c lx = size of unreduced image
       lx = (8*lz)/nbit
 c normalize characters and location
-      lafx = alx*float(isx)
-      lafy = zero*float(isy)
-      nfs = csize*float(isy)
+      lafx = alx*real(isx)
+      lafy = zero*real(isy)
+      nfs = csize*real(isy)
 c monochrome output
       if ((iwt.eq.1).or.(iwt.eq.2)) then
          mbit = 1

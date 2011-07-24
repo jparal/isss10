@@ -4,7 +4,7 @@
 !
 ! Fortran90 interface to 1d PIC Fortran77 library push1lib.f
 ! push1mod.f contains interface procedures to process particles:
-!             defines module push1d
+!            defines module push1d
 ! dpost => igpost1 deposits charge density, with various interpolations
 !          and optimizations.
 !          calls GPOST1, GSPOST1, GSPOST1X, GPOST1L, GSPOST1L, or
@@ -16,7 +16,7 @@
 !          calls SORTP1X, or SORTP1XL
 ! written by viktor k. decyk, ucla
 ! copyright 1999, regents of the university of california
-! update: june 14, 2011
+! update: july 12, 2011
 !
       use globals, only: LINEAR, QUADRATIC, STANDARD, LOOKAHEAD, VECTOR
       use diag1d, only: wtimer

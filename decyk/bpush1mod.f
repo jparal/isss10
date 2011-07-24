@@ -5,6 +5,7 @@
 ! Fortran90 interface to 1d PIC Fortran77 library bpush1lib.f
 ! bpush1mod.f contains interface procedures to process particles with
 !             magnetic fields:
+!             defines module bpush1d
 ! djpost => igjpost1 deposits current density, with various
 !           interpolations and optimizations.
 !           calls GJPOST1, GSJPOST1, GSJPOST1X, GJPOST1L, GSJPOST1L, or
@@ -16,7 +17,7 @@
 !           calls RETARD1
 ! written by viktor k. decyk, ucla
 ! copyright 1999, regents of the university of california
-! update: august 18, 2010
+! update: july 12, 2011
 !
       use globals, only: LINEAR, QUADRATIC, STANDARD, LOOKAHEAD, VECTOR
       use diag1d, only: wtimer

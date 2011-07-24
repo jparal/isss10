@@ -3,7 +3,7 @@
 !
       integer, parameter :: nhst=5000,ijmx=2000
       integer, parameter :: nsampl=1024
-      integer, parameter :: idx=64,idy=32,idz=32
+      integer, parameter :: idx=32,idy=32,idz=64
       integer, parameter :: idxg=idx+2,idyg=idy+2,idzg=idz+2
       integer, parameter :: itdim=idxg*idyg*idzg
       integer, parameter :: idxyzg=idxg*idyg*idzg

@@ -8,5 +8,5 @@
  VTDX = 0.0, VDX = 0.0
  AX = .912871
  MODESXP = 40
- NPLOT = 0, SORTIME = 0
+ NPLOT = 4, SORTIME = 0
  /

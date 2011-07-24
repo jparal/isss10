@@ -1,26 +1,26 @@
  '3D Kelvin_Helmholtz Instability Rm=1000 40**3'
  $celin
  nphist=001,
- ibar=32,jbar=32,kbar=32,
- dx=0.0625,dy=0.125,dz=0.03125,
+ ibar=16,jbar=16,kbar=16,
+ dx=0.125,dy=0.5,dz=0.125,
  kplas=10,
- ncyc2=400,
+ ncyc2=300,
  mgeom=10,
  taug=0.20,
  explicit=.true.,
  adaptg=.false.,
  precon=.t.,
  periodic_x=.t.,periodic_y=.t.,periodic_z=.f.,
- resistive=.f.,
- resistivity=0.001,
+ resist=.t.,
+ resistivity=0.0025,
  mu=0.0,lam=0.0,
   error=1.e-6,
    eps=1.e-8,
  nomag=.f., itmag=5,
  imp=0,
  itmax=20,
- dt=0.0125,dtmax=0.0125,twfin=05.0,
- dto=0.1,dtoc=400.,lpr=1,
+ dt=0.025,dtmax=0.05,twfin=20.0,
+ dto=0.25,dtoc=400.,lpr=1,
  iout(1)=1,iout(2)=1,iout(3)=1,iout(4)=0,iout(5)=0,
  iout(6)=1,iout(7)=0,iout(8)=1,iout(9)=1,iout(10)=0,
  iout(11)=0,iout(12)=0,iout(13)=0,iout(14)=0,iout(15)=0,
@@ -32,23 +32,25 @@
  gm1=.667,gx=0.0,gy=0.0,gz=0.0
  /
  $species
- nsp=1,
- SpeciesName(1)='Hydrogen'
+ nsp=2,
+ SpeciesName(1)='TopHydro'
+ SpeciesName(2)='BotHydro'
  /
  $reg
  nrg=2,
  npcelx=3,3,npcely=3,3,npcelz=3,3,
  xvitmp(1:8)=2.,2.,0.,0.,2.,2.,0.,0.,
- yvitmp(1:8)=0.,4.0,4.0,0.,0.0,4.0,4.0,0.0,
- zvitmp(1:8)=0.,0.,0.,0.,0.5,0.5,0.5,0.5,
+ yvitmp(1:8)=0.,8.0,8.0,0.,0.0,8.0,8.0,0.0,
+ zvitmp(1:8)=0.,0.,0.,0.,1.0,1.0,1.0,1.0,
  xvitmp(9:16)=2.,2.,0.,0.,2.,2.,0.,0.,
- yvitmp(9:16)=0.0,4.0,4.0,0.0,0.0,4.0,4.0,0.0,
- zvitmp(9:16)=0.5,0.5,0.5,0.5,1.0,1.0,1.0,1.0,
- xcenter=0.5,0.5,ycenter=0.5,0.5,zcenter=0.5,0.5,
+ yvitmp(9:16)=0.0,8.0,8.0,0.0,0.0,8.0,8.0,0.0,
+ zvitmp(9:16)=1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,
+ xcenter=0.5,0.5,ycenter=0.5,0.5,zcenter=1.0,1.0,
  rex=1.e10,1.e10,rey=1.e10,1.e10,rez=1.e10,1.e10,
  rix=0.0,0.0,riy=0.0,0.0,riz=0.0,0.0,
- rhr=1.,1.0,siep=5.,5.,icoi=1,1, 
+ rhr=1.,1.0,siep=2.,2.,icoi=1,2, 
  uvi=0.5,-0.5,vvi=-0.0,0.0,wvi=0.0,
  modex=2.,2., modey=1.,1.,
+ perturbx=0.05, perturby=0.,
  bxr(1:2)=0.0,-0.0,byr(1:2)=1.0,-1.0,bzr(1:2)=0.,0.,
  /

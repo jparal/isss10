@@ -17,7 +17,7 @@
           sinkx,sinky,coskx,cosky,      &
           profile,pvolume,rhobar,rhodif,rse,rsi,siebar,siedif,      &
           rnpcx,rnpcy,rnpcz,ws,wsnc,volmin,      &
-          wspx,wspy,wspz,wsxi,wseta,wsnu,perturbx,      &
+          wspx,wspy,wspz,wsxi,wseta,wsnu,      &
           c1,c2,c3,c4,c5,c6,c7,c8
       real(double) ::      &
           x1,x2,x3,x4,x5,x6,x7,x8,      &
@@ -547,11 +547,14 @@
       sinky=sin(fky*wspy)
       cosky=cos(fky*wspy)
 !
-    perturbx=0.05
-    perturby=0.05
 !
-      up(np)=(uvi(kr)-perturbx*coskx*dhzdz)*cosky
-      wp(np)=(wvi(kr)+perturbx*sinkx*hz)*cosky
+    if(modey(kr).ne.0) then
+      up(np)=(uvi(kr)-perturbx*coskx*dhzdz)*0.5*(1.-cosky)
+      wp(np)=(wvi(kr)+perturbx*sinkx*hz)*0.5*(1.-cosky)
+    else
+      up(np)=(uvi(kr)-perturbx*coskx*dhzdz)
+      wp(np)=(wvi(kr)+perturbx*sinkx*hz)
+    endif
       vp(np)=vvi(kr)      !+perturbx*coskx*dhzdz
 !
 !

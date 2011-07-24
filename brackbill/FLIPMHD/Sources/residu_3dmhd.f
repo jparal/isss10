@@ -39,6 +39,8 @@
 !
       call accel_3dmhd
 !
+     if(resist) call resistive_diff
+!
       call strain_ns(ncells,ijkcell,iwid,jwid,kwid,    &
           dudx,dudy,dudz,    &
           dvdx,dvdy,dvdz,    &
@@ -54,26 +56,23 @@
       s(n,1)=(pl(ijk)-p(ijk))*vol(ijk)    &
           +(gm1+1.0)*pl(ijk)*divu*vol(ijk)*dt
 !
-      s(n,2)=(bxl(ijk)-bxn(ijk))*vol(ijk)    &
+      s(n,2)=(bxl(ijk)-bxn(ijk)    &
           +(bxl(ijk)*divu     &
-          -(bxl(ijk)*dudx(ijk)+byl(ijk)*dudy(ijk)+bzl(ijk)*dudz(ijk))     &
-          +CurlEx(ijk))     &
-!           )      &
-          *vol(ijk)*dt      
+          -bxl(ijk)*dudx(ijk)-byl(ijk)*dudy(ijk)-bzl(ijk)*dudz(ijk)     &
+          +CurlEx(ijk))*dt)     &
+          *vol(ijk)      
 !
-      s(n,3)=(byl(ijk)-byn(ijk))*vol(ijk)    &
+      s(n,3)=(byl(ijk)-byn(ijk)    &
           +(byl(ijk)*divu    &
-          -(bxl(ijk)*dvdx(ijk)+byl(ijk)*dvdy(ijk)+bzl(ijk)*dvdz(ijk))    &
-         +CurlEy(ijk))    &
-!           )    &
-          *vol(ijk)*dt
+          -bxl(ijk)*dvdx(ijk)-byl(ijk)*dvdy(ijk)-bzl(ijk)*dvdz(ijk)    &
+         +CurlEy(ijk))*dt)    &
+          *vol(ijk)
 !
-      s(n,4)=(bzl(ijk)-bzn(ijk))*vol(ijk)    &
+      s(n,4)=(bzl(ijk)-bzn(ijk)    &
           +(bzl(ijk)*divu    &
-          -(bxl(ijk)*dwdx(ijk)+byl(ijk)*dwdy(ijk)+bzl(ijk)*dwdz(ijk))    &
-         +CurlEz(ijk))    &
-!          )    &
-          *vol(ijk)*dt
+          -bxl(ijk)*dwdx(ijk)-byl(ijk)*dwdy(ijk)-bzl(ijk)*dwdz(ijk)    &
+         +CurlEz(ijk))*dt)    &
+          *vol(ijk)
 !
       enddo
 !

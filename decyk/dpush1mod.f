@@ -5,6 +5,7 @@
 ! Fortran90 interface to 1d PIC Fortran77 library dpush1lib.f
 ! dpush1mod.f contains interface procedures to process particles with
 !             darwin electric and magnetic fields:
+!             defines module dpush1d
 ! dmjpost => igmjpost1 deposits momentum flux, with various
 !            interpolations and optimizations.
 !            calls GMJPOST1, GSMJPOST1, GMJPOST1L, or GSMJPOST1L
@@ -14,7 +15,7 @@
 !            calls GDCJPOST1, GSDCJPOST1, GDCJPOST1L, or GSDCJPOST1L
 ! written by viktor k. decyk, ucla
 ! copyright 2006, regents of the university of california
-! update: august 13, 2009
+! update: july 12, 2011
 !
       use globals, only: LINEAR, QUADRATIC, STANDARD, LOOKAHEAD, VECTOR
       use diag1d, only: wtimer

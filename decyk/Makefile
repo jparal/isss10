@@ -208,7 +208,7 @@ MPOBJS = LnxMP.o LPProcessors.o
 # X11 graphics needs Ygl from http://www.thp.uni-duisburg.de/Ygl/
 GOBJS = libgks1.o libygl.o
 #LIBS = -L/usr/X11R6/lib -lYgl -lX11
-LIBS = -L/usr/lib/i386-linux-gnu/ -lYgl -lX11
+LIBS = -L/usr/lib64 -lYgl -L/usr/X11R6/lib -lX11
 # Postcript printer
 #GOBJS = libgks1.o libpsp.o libloc1.o
 #LIBS =

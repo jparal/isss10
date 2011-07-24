@@ -3,8 +3,9 @@
       module dfield1d
 !
 ! Fortran90 interface to 1d PIC Fortran77 library dfield1lib.f
-! dfield1mod.f contains procedures to manage guard cells and solve fields
-!              in fourier space with dirichlet boundary conditions:
+! dfield1mod.f contains procedures to manage guard cells and solve 
+!              fields in fourier space with dirichlet boundary
+!              conditions:
 !              defines module dfield2d
 ! laguard => ilaguard1 add guard cells for non-periodic scalar array
 !            to replace quadratic with linear interpolation at the edges
@@ -31,6 +32,12 @@
 ! dblsin => idblsin1d double array for 1d scalar data for dirichlet
 !           boundary conditions.
 !           calls DBLSIN1D
+! dblcos => idblcos1a double array for 1d vector data for neumann
+!           boundary conditions.
+!           calls DBLCOS1A
+! dblcos => idblcos1d double array for 1d scalar data for neumann
+!           boundary conditions.
+!           calls DBLCOS1D
 ! hafdbl => ihafdbl1c extract data from doubled array for 1d vector data
 !           calls HAFDBL1D, HAFDBL1C, or HAFDBL1B
 ! hafdbl => ihafdbl1d extract data from doubled array for 1d scalar data
@@ -52,6 +59,12 @@
 ! bpoisd => jbpoisd13 solves 1-1/2d vector poisson equation for magnetic
 !           force with dirichlet boundary conditions, using sine/cosine
 !           transforms.
+!           calls BPOISD13
+! spoisdx => ispoisdx13 provides vector smoothing with dirichlet
+!            boundary conditions, using ffts.
+!            calls BPOISDX13
+! spoisd => ispoisd13 provides vector smoothing with dirichlet boundary
+!           conditions, sine transform.
 !           calls BPOISD13
 ! apoisdx => iapoisdx13 solves 1-1/2d vector poisson equation for vector
 !            potential with dirichlet boundary conditions, using ffts.
@@ -75,11 +88,14 @@
 !            sine/cosine transforms.
 !            calls MAXWELD1
 ! cmfieldd => icmfieldd1 copies vector data from doubled fft to
-!             sine/cosine format.
+!             sine format.
 !             calls CMFIELDD1
 ! cmfieldd => idmfieldd1 copies scalar data from doubled fft to
-!             sine/cosine format.
+!             sine format.
 !             calls DMFIELDD1
+! amfieldd => iamfieldd1 copies vector data from doubled fft to
+!             cosine format.
+!             calls AMFIELDD1
 ! emfieldd => iemfieldd1 calculates electric forces from fields given by
 !             maxwell and poisson equations with dirichlet boundary
 !             conditions.
@@ -114,9 +130,45 @@
 ! ptsmodes => iptvsmodes1 places selected sine components into vector
 !             potential array.
 !             calls PTVSMODES1
+! dcuperpdx => idcuperpdx13 calculate transverse derivative of 1-2/2d
+!              current density from momentum flux, with dirichlet
+!              boundary conditions, using ffts.
+!              calls DCUPERPDX13
+! dcuperpd => idcuperpd13 calculate transverse derivative of 1-2/2d
+!             current density from momentum flux, with dirichlet
+!             boundary conditions, using sine/cosine transforms.
+!             calls DCUPERPD13
+! adcuperpdx => iadcuperpdx13 calculate transverse derivative of 1-2/2d
+!               current density from momentum flux and acceleration
+!               density, with dirichlet boundary conditions, using ffts.
+!               calls ADCUPERPDX13
+! adcuperpd => iadcuperpd13 calculate transverse derivative of 1-2/2d
+!              current density from momentum flux and acceleration
+!              density, with dirichlet boundary conditions, using
+!              sine/cosine transforms.
+!              calls ADCUPERPD13
+! epoisd_init => iepoisd13init initializes tables for darwin field solver,
+!                with dirichlet boundary conditions.
+!                calls EPOISDX13
+! epoisdx => jepoisdx13 solves 1-2/2d vector poisson equation for
+!            transverse electric force with dirichlet boundary
+!            conditions, using ffts.
+!            calls EPOISDX13
+! epoisd => jepoisd13 solves 1-2/2d vector poisson equation for
+!           transverse electric force with dirichlet boundary
+!           conditions, using sine/cosine transforms.
+!           calls EPOISD13
+! iepoisdx => jiepoisdx13 solves 1-2/2d vector poisson equation
+!             for transverse electric field without smoothing, with
+!             dirichlet boundary conditions, using ffts.
+!             calls EPOISDX13
+! iepoisd => jiepoisd13 solves 1-2/2d vector poisson equation
+!            for transverse electric field without smoothing, with
+!            dirichlet boundary conditions, using sine/cosine transforms
+!            calls EPOISD13
 ! written by viktor k. decyk, ucla
 ! copyright 1999, regents of the university of california
-! update: july 21, 2010
+! update: july 19, 2011
 !
       use globals, only: LINEAR, QUADRATIC
       implicit none
@@ -126,10 +178,13 @@
       public :: LSCGUARD1, LSGUARD1, LSCGUARD1L, LSGUARD1L
       public :: LACGUARD1, LAGUARD1
       public :: laguard, lcguard, lsguard
-      public :: dblsin, hafdbl, poisd_init, poisdx, poisd, bpoisdx
-      public :: bpoisd, apoisdx, apoisd, ibpoisdx, ibpoisd, maxweldx
-      public :: maxweld, cmfieldd, emfieldd, avpotdx, avpotd
-      public :: avrpotdx, avrpotd, gtsmodes, ptsmodes
+      public :: dblsin, dblcos, hafdbl, poisd_init, poisdx, poisd
+      public :: bpoisdx, bpoisd, spoisdx, spoisd, apoisdx, apoisd
+      public :: ibpoisdx, ibpoisd, maxweldx, maxweld
+      public :: cmfieldd, amfieldd, emfieldd
+      public :: avpotdx, avpotd, avrpotdx, avrpotd, gtsmodes, ptsmodes
+      public :: dcuperpdx, dcuperpd, adcuperpdx, adcuperpd
+      public :: epoisd_init, epoisdx, epoisd, iepoisdx, iepoisd
 !
 ! define interface to original Fortran77 procedures
 !
@@ -213,6 +268,24 @@
       end interface
       interface
          subroutine DBLSIN1D(q,q2,nx,nxv,nx2v)
+         implicit none
+         integer :: nx, nxv, nx2v
+!        real, dimension(*) :: q
+         real :: q
+         real, dimension(nx2v) :: q2
+         end subroutine
+      end interface
+      interface
+         subroutine DBLCOS1A(cu,cu2,nx,nxv,nx2v)
+         implicit none
+         integer :: nx, nxv, nx2v
+!        real, dimension(*) :: cu
+         real :: cu
+         real, dimension(2,nx2v) :: cu2
+         end subroutine
+      end interface
+      interface
+         subroutine DBLCOS1D(q,q2,nx,nxv,nx2v)
          implicit none
          integer :: nx, nxv, nx2v
 !        real, dimension(*) :: q
@@ -347,6 +420,15 @@
          end subroutine
       end interface
       interface
+         subroutine AMFIELDD1(amu2,amu,nx,nxv,nxe)
+         implicit none
+         integer :: nx, nxv, nxe
+         real, dimension(2,2*nxv) :: amu2
+!        real, dimension(*) :: amu
+         real :: amu
+         end subroutine
+      end interface
+      interface
          subroutine EMFIELDD1(fxyz,fx,eyz,ffd,nx,nxv,nxe,nxd)
          implicit none
          integer :: nx, nxv, nxe, nxd
@@ -441,6 +523,73 @@
          real, dimension(nt,modesxd) :: vpott
          end subroutine
       end interface
+      interface
+         subroutine LSCFGUARD1(cus,cu,q2m0,nx,nxe)
+         implicit none
+         integer :: nx, nxe
+         real :: q2m0
+         real, dimension(2,nxe) :: cus, cu
+         end subroutine
+      end interface
+      interface
+         subroutine LSCFGUARD1L(cus,cu,q2m0,nx,nxe)
+         implicit none
+         integer :: nx, nxe
+         real :: q2m0
+         real, dimension(2,nxe) :: cus, cu
+         end subroutine
+      end interface
+      interface
+         subroutine DCUPERPDX13(dcu,amu,nx,nxv)
+         implicit none
+         integer :: nx, nxv
+         real, dimension(2,2*nxv) :: dcu, amu
+         end subroutine
+      end interface
+      interface
+         subroutine DCUPERPD13(dcu,amu,nx,nxe)
+         implicit none
+         integer :: nx, nxe
+!        real, dimension(*) :: dcu, amu
+         real :: dcu, amu
+         end subroutine
+      end interface
+      interface
+         subroutine ADCUPERPDX23(dcu,amu,nx,nxv)
+         implicit none
+         integer :: nx, nxv
+         real, dimension(2,2*nxv) :: dcu, amu
+         end subroutine
+      end interface
+      interface
+        subroutine ADCUPERPD13(dcu,amu,nx,nxe)
+         implicit none
+         integer :: nx, nxe
+!        real, dimension(*) :: dcu, amu
+         real :: dcu, amu
+         end subroutine
+      end interface
+      interface
+         subroutine EPOISDX13(dcu,eyz,isign,fff,ax,affp,wp0,ci,wf,nx,nxv&
+     &,nxd)
+         implicit none
+         integer :: isign, nx, nxv, nxd
+         real :: ax, affp, wp0, ci, wf
+         real, dimension(2,2*nxv) :: dcu, eyz
+         complex, dimension(nxd) :: fff
+         end subroutine
+      end interface
+!     interface
+!        subroutine EPOISD13(dcu,eyz,isign,fff,ax,affp,wp0,ci,wf,nx,nxe,&
+!    &nxv)
+!        implicit none
+!        integer :: isign, nx, nxe, nxv
+!        real :: ax, affp, wp0, ci, wf
+!        real, dimension(*) :: dcu, eyz
+!        real :: dcu, eyz
+!        complex, dimension(nxv) :: fff
+!        end subroutine
+!     end interface
 !
 ! define generic interfaces to Fortran90 library
 !      
@@ -457,11 +606,17 @@
       interface lsguard
          module procedure ilscguard1
          module procedure ilsguard1
+         module procedure ilsfguard1
       end interface
 !
       interface dblsin
          module procedure idblsin1a
          module procedure idblsin1d
+      end interface
+!
+      interface dblcos
+         module procedure idblcos1a
+         module procedure idblcos1d
       end interface
 !
       interface hafdbl
@@ -487,6 +642,14 @@
 !
       interface bpoisd
          module procedure jbpoisd13
+      end interface
+!
+      interface spoisdx
+         module procedure ispoisdx13
+      end interface
+!
+      interface spoisd
+         module procedure ispoisd13
       end interface
 !
       interface apoisdx
@@ -518,6 +681,10 @@
          module procedure idmfieldd1
       end interface
 !
+      interface amfieldd
+         module procedure iamfieldd1
+      end interface
+!
       interface emfieldd
          module procedure iemfieldd1
          module procedure ibmfieldd1
@@ -547,6 +714,42 @@
       interface ptsmodes
          module procedure iptsmodes1
          module procedure iptvsmodes1
+      end interface
+!
+      interface dcuperpdx
+         module procedure idcuperpdx13
+      end interface
+!
+      interface dcuperpd
+         module procedure idcuperpd13
+      end interface
+!
+      interface adcuperpdx
+         module procedure iadcuperpdx13
+      end interface
+!
+      interface adcuperpd
+         module procedure iadcuperpd13
+      end interface
+!
+       interface epoisd_init
+         module procedure iepoisd13init
+      end interface
+!
+      interface epoisdx
+         module procedure jepoisdx13
+      end interface
+!
+      interface epoisd
+         module procedure jepoisd13
+      end interface
+!
+      interface iepoisdx
+         module procedure jiepoisdx13
+      end interface
+!
+      interface iepoisd
+         module procedure jiepoisd13
       end interface
 !
 ! define Fortran90 interface functions to Fortran77 library
@@ -608,15 +811,15 @@
          if (present(inorder)) order = inorder
          select case(size(fxy,1))
          case (1)
-            if (order==QUADRATIC) then
+            if (order /= LINEAR) then
                call LDGUARD1(fxy,nx,nxe)
             endif
          case (2)
-            if (order==QUADRATIC) then
+            if (order /= LINEAR) then
                call LCGUARD1(fxy,nx,nxe)
             endif
          case (3)
-            if (order==QUADRATIC) then
+            if (order /= LINEAR) then
                call LBGUARD1(fxy,nx,nxe)
             endif
          end select
@@ -647,7 +850,7 @@
          real :: yj0, zj0
          real, dimension(:,:), pointer :: cu
 ! local data
-         integer :: ngx = 1,nxe, order
+         integer :: ngx = 1, nxe, order
          nxe = size(cu,2)
          order = QUADRATIC
          if (present(inorder)) order = inorder
@@ -730,6 +933,51 @@
             call DBLSIN1D(q(2),q2,nx,nxv,nx2v)
          endif
          end subroutine idblsin1d
+!
+         subroutine idblcos1a(cu,cu2,nx,inorder)
+! double array in each dimension for 1d vector data
+! for neumann boundary conditions
+         implicit none
+         integer :: nx
+         integer, optional :: inorder
+         real, dimension(:,:), pointer :: cu
+         real, dimension(:,:), pointer :: cu2
+! local data
+         integer :: nxv, nx2v, order
+         nxv = size(cu,2)
+         nx2v = size(cu2,2)
+         order = QUADRATIC
+         if (present(inorder)) order = inorder
+         select case(size(cu,1))
+         case (2)
+            if (order==LINEAR) then
+               call DBLCOS1A(cu(1,1),cu2,nx,nxv,nx2v)
+            else
+               call DBLCOS1A(cu(1,2),cu2,nx,nxv,nx2v)
+            endif
+         end select
+         end subroutine idblcos1a
+!
+         subroutine idblcos1d(q,q2,nx,inorder)
+! double array in each dimension for 1d scalar data
+! for neumann boundary conditions
+         implicit none
+         integer :: nx
+         integer, optional :: inorder
+         real, dimension(:), pointer :: q
+         real, dimension(:), pointer :: q2
+! local data
+         integer :: nxv, nx2v, order
+         nxv = size(q,1)
+         nx2v = size(q2,1)
+         order = QUADRATIC
+         if (present(inorder)) order = inorder
+         if (order==LINEAR) then
+            call DBLCOS1D(q(1),q2,nx,nxv,nx2v)
+         else
+            call DBLCOS1D(q(2),q2,nx,nxv,nx2v)
+         endif
+         end subroutine idblcos1d
 !
          subroutine ihafdbl1c(fxy,fxy2,nx,inorder)
 ! copy from double to normal array in each dimension for 1d vector data
@@ -848,7 +1096,7 @@
 ! local data
          integer :: isign = -1, nxe, nxv
          real :: ax, affp
-         nxe = size(cu,2); nxv = size(ffd,1)
+         nxe = size(cu,2)/2; nxv = size(ffd,1)
          select case(size(cu,1))
          case (2)
             call BPOISDX13(cu,byz,isign,ffd,ax,affp,ci,wm,nx,nxe,nxv)
@@ -882,6 +1130,47 @@
          end select
          end subroutine jbpoisd13
 !
+         subroutine ispoisdx13(cu,byz,ffd,nx)
+! smoother for non-periodic 1d vector field, using fft
+         implicit none
+         integer :: nx
+         real, dimension(:,:), pointer :: cu, byz
+         complex, dimension(:), pointer :: ffd
+! local data
+         integer :: isign = 2, nxe, nxv
+         real :: ax, affp, ci, wm
+         nxe = size(cu,2)/2; nxv = size(ffd,1)
+         select case(size(cu,1))
+         case (2)
+            call BPOISDX13(cu,byz,isign,ffd,ax,affp,ci,wm,nx,nxe,nxv)
+         end select
+         end subroutine ispoisdx13
+!
+         subroutine ispoisd13(cu,ayz,ffd,nx,order)
+! smoother for non-periodic 1d vector field, using fast sine transform
+         implicit none
+         integer :: nx
+         integer, optional :: order
+         real, dimension(:,:), pointer :: cu, ayz
+         complex, dimension(:), pointer :: ffd
+! local data
+         integer :: isign = 2, nxe, nxv, inorder
+         real :: ax, affp, ci, wm
+         nxe = size(cu,2); nxv = size(ffd,1)
+         inorder = QUADRATIC
+         if (present(order)) inorder = order
+         select case(size(cu,1))
+         case (2)
+            if (inorder==LINEAR) then
+               call BPOISD13(cu(1,1),ayz(1,1),isign,ffd,ax,affp,ci,wm,nx&
+     &,nxe,nxv)
+            else
+               call BPOISD13(cu(1,2),ayz(1,2),isign,ffd,ax,affp,ci,wm,nx&
+     &,nxe,nxv)
+            endif
+         end select
+         end subroutine ispoisd13
+!
          subroutine iapoisdx13(cu,byz,ffd,ci,wm,nx)
 ! calculates static vector potential for 1d vector field,
 ! conducting boundaries, using fft
@@ -893,7 +1182,7 @@
 ! local data
          integer :: isign = 1, nxe, nxv
          real :: ax, affp
-         nxe = size(cu,2); nxv = size(ffd,1)
+         nxe = size(cu,2)/2; nxv = size(ffd,1)
          select case(size(cu,1))
          case (2)
             call BPOISDX13(cu,byz,isign,ffd,ax,affp,ci,wm,nx,nxe,nxv)
@@ -938,7 +1227,7 @@
          complex, dimension(:), pointer :: ffd
 ! local data
          integer :: nxe, nxv
-         nxe = size(cu,2); nxv = size(ffd,1)
+         nxe = size(cu,2)/2; nxv = size(ffd,1)
          call IBPOISDX13(cu,byz,ffd,ci,wm,nx,nxe,nxv)
          end subroutine jibpoisdx13
 !
@@ -975,7 +1264,7 @@
          complex, dimension(:), pointer :: ffd
 ! local data
          integer :: nxe, nxv
-         nxe = size(cu,2); nxv = size(ffd,1)
+         nxe = size(cu,2)/2; nxv = size(ffd,1)
          call MAXWELDX1(eyz,byz,cu,ffd,ci,dt,wf,wm,nx,nxe,nxv)
          end subroutine imaxweldx1    
 !
@@ -1003,7 +1292,7 @@
 !
          subroutine icmfieldd1(cu2,cu,nx,order)
 ! copies from double to normal array in x dimension for 1d vector data
-! conducting boundaries
+! for sine transform
          implicit none
          integer :: nx
          integer, optional :: order
@@ -1023,6 +1312,7 @@
 !
          subroutine idmfieldd1(q2,q,nx,order)
 ! copies from double to normal array in x dimension for 1d scalar data
+! for sine transform
          implicit none
          integer :: nx
          integer, optional :: order
@@ -1039,6 +1329,26 @@
             call DMFIELDD1(q2,q(2),nx,nxv,nxe)
          endif
          end subroutine idmfieldd1
+!
+         subroutine iamfieldd1(amu2,amu,nx,order)
+! copies from double to normal array in x dimension for 1d vector data
+! for cosine transform
+         implicit none
+         integer :: nx
+         integer, optional :: order
+         real, dimension(:,:), pointer :: amu2, amu
+! local data
+         integer :: nxv, nxe, inorder
+         nxv = size(amu2,2)/2
+         nxe = size(amu,2)
+         inorder = QUADRATIC
+         if (present(order)) inorder = order
+         if (inorder==LINEAR) then
+            call AMFIELDD1(amu2,amu(1,1),nx,nxv,nxe)
+         else
+            call AMFIELDD1(amu2,amu(1,2),nx,nxv,nxe)
+         endif
+         end subroutine iamfieldd1
 !
          subroutine iemfieldd1(fxyz,fx,eyz,ffd,nx)
 ! combines and smooths 1d vector fields, conducting boundaries
@@ -1225,5 +1535,212 @@
      &esxd)
          endif
          end subroutine iptvsmodes1
+!
+         subroutine ilsfguard1(cus,cu,q2m0,nx,inorder)
+! initialize non-periodic 1d vector field with scaled field
+         implicit none
+         integer :: nx
+         integer, optional :: inorder
+         real :: q2m0
+         real, dimension(:,:), pointer :: cu, cus
+! local data
+         integer :: nxe, order
+         nxe = size(cus,2)
+         order = QUADRATIC
+         if (present(inorder)) order = inorder
+         select case(size(cus,1))
+         case (2)
+            if (order==LINEAR) then
+               call LSCFGUARD1L(cus,cu,q2m0,nx,nxe)
+            else
+               call LSCFGUARD1(cus,cu,q2m0,nx,nxe)
+            endif
+         end select
+         end subroutine ilsfguard1
+!
+         subroutine idcuperpdx13(dcu,amu,nx)
+! calculates the transverse part of non-periodic 1d vector field
+! from momentum flux tensor, conducting boundaries, using fft
+         implicit none
+         integer :: nx
+         real, dimension(:,:), pointer :: dcu, amu
+! local data
+         integer :: nxv
+         nxv = size(dcu,2)/2
+         select case(size(dcu,1))
+         case (2)
+            call DCUPERPDX13(dcu,amu,nx,nxv)
+         end select
+         end subroutine idcuperpdx13
+!
+         subroutine idcuperpd13(dcu,amu,nx,order)
+! calculates the transverse part of non-periodic 1d vector field
+! from momentum flux tensor, conducting boundaries, using fast
+! sine/cosine transforms
+         implicit none
+         integer :: nx
+         integer, optional :: order
+         real, dimension(:,:), pointer :: dcu, amu
+! local data
+         integer :: nxe, inorder
+         nxe = size(dcu,2)
+         inorder = QUADRATIC
+         if (present(order)) inorder = order
+         select case(size(dcu,1))
+         case (2)
+            if (inorder==LINEAR) then
+               call DCUPERPD13(dcu(1,1),amu(1,1),nx,nxe)
+            else
+               call DCUPERPD13(dcu(1,2),amu(1,2),nx,nxe)
+            endif
+         end select
+         end subroutine idcuperpd13
+!
+         subroutine iadcuperpdx13(dcu,amu,nx)
+! calculates the transverse part of non-periodic 1d vector field
+! from acceleration vector and momentum flux tensor,
+! conducting boundaries, using fft
+         implicit none
+         integer :: nx
+         real, dimension(:,:), pointer :: dcu, amu
+! local data
+         integer :: nxv
+         nxv = size(dcu,2)/2
+         select case(size(dcu,1))
+         case (2)
+            call ADCUPERPDX13(dcu,amu,nx,nxv)
+         end select
+         end subroutine iadcuperpdx13
+!
+         subroutine iadcuperpd13(dcu,amu,nx,order)
+! calculates the transverse part of non-periodic 1d vector field
+! from acceleration vector and momentum flux tensor,
+! conducting boundaries using fast sine/cosine transforms
+         implicit none
+         integer :: nx
+         integer, optional :: order
+         real, dimension(:,:), pointer :: dcu, amu
+! local data
+         integer :: nxe, inorder
+         nxe = size(dcu,2)
+         inorder = QUADRATIC
+         if (present(order)) inorder = order
+         select case(size(dcu,1))
+         case (2)
+            if (inorder==LINEAR) then
+               call ADCUPERPD13(dcu(1,1),amu(1,1),nx,nxe)
+            else
+               call ADCUPERPD13(dcu(1,2),amu(1,2),nx,nxe)
+            endif
+         end select
+         end subroutine iadcuperpd13
+!
+         subroutine iepoisd13init(fff,ax,affp,wp0,ci,nx)
+! initialize 1d non-periodic transverse electric field solver
+         implicit none
+         integer :: nx
+         real :: ax, affp, wp0, ci
+         complex, dimension(:), pointer :: fff
+! local data
+         integer :: isign = 0, nxe = 1, nxv
+         real :: wf
+         real, dimension(1,1,1) :: dcu, eyz
+         nxv = size(fff,1)
+         call EPOISDX13(dcu,eyz,isign,fff,ax,affp,wp0,ci,wf,nx,nxe,nxv)
+         end subroutine iepoisd13init
+!
+         subroutine jepoisdx13(dcu,eyz,fff,ci,wf,nx)
+! calculates transverse electric field for periodic 1d vector field
+! conducting boundaries, using fft
+         implicit none
+         integer :: nx
+         real :: ci, wf
+         real, dimension(:,:), pointer :: dcu, eyz
+         complex, dimension(:), pointer :: fff
+! local data
+         integer :: isign = -1, nxe, nxv
+         real :: ax, affp, wp0
+         nxe = size(dcu,2)/2; nxv = size(fff,1)
+         select case(size(dcu,1))
+         case (2)
+            call EPOISDX13(dcu,eyz,isign,fff,ax,affp,wp0,ci,wf,nx,nxe,nx&
+     &v)
+         end select
+         end subroutine jepoisdx13
+!
+         subroutine jepoisd13(dcu,eyz,fff,ci,wf,nx,order)
+! calculates transverse electric field for periodic 1d vector field
+! conducting boundaries, using fast sine/cosine transforms
+         implicit none
+         integer :: nx
+         integer, optional :: order
+         real :: ci, wf
+         real, dimension(:,:), pointer :: dcu, eyz
+         complex, dimension(:), pointer :: fff
+! local data
+         integer :: isign = -1, nxe, nxv, inorder
+         real :: ax, affp, wp0
+         nxe = size(dcu,2); nxv = size(fff,1)
+         inorder = QUADRATIC
+         if (present(order)) inorder = order
+         select case(size(dcu,1))
+         case (2)
+            if (inorder==LINEAR) then
+               call EPOISD13(dcu(1,1),eyz(1,1),isign,fff,ax,affp,wp0,ci,&
+     &wf,nx,nxe,nxv)
+            else
+               call EPOISD13(dcu(1,2),eyz(1,2),isign,fff,ax,affp,wp0,ci,&
+     &wf,nx,nxe,nxv)
+            endif
+         end select
+         end subroutine jepoisd13
+!
+         subroutine jiepoisdx13(dcu,eyz,fff,ci,wf,nx)
+! calculates transverse electric field for periodic 1d vector field
+! without smoothing, conducting boundaries, using fft
+         implicit none
+         integer :: nx
+         real :: ci, wf
+         real, dimension(:,:), pointer :: dcu, eyz
+         complex, dimension(:), pointer :: fff
+! local data
+         integer :: isign = 1, nxe, nxv
+         real :: ax, affp, wp0
+         nxe = size(dcu,2)/2; nxv = size(fff,1)
+         select case(size(dcu,1))
+         case (2)
+            call EPOISDX13(dcu,eyz,isign,fff,ax,affp,wp0,ci,wf,nx,nxe,nx&
+     &v)
+         end select
+         end subroutine jiepoisdx13
+!
+         subroutine jiepoisd13(dcu,eyz,fff,ci,wf,nx,order)
+! calculates transverse electric field for periodic 1d vector field
+! without smoothing, conducting boundaries, using fast sine/cosine
+! transforms
+         implicit none
+         integer :: nx
+         integer, optional :: order
+         real :: ci, wf
+         real, dimension(:,:), pointer :: dcu
+         complex, dimension(:,:), pointer :: eyz
+         complex, dimension(:), pointer :: fff
+! local data
+         integer :: isign = 1, nxe, nxv, inorder
+         real :: ax, affp, wp0
+         nxe = size(dcu,2); nxv = size(fff,1)
+         inorder = QUADRATIC
+         if (present(order)) inorder = order
+         select case(size(dcu,1))
+         case (2)
+            if (inorder==LINEAR) then
+               call EPOISD13(dcu(1,1),eyz,isign,fff,ax,affp,wp0,ci,wf,nx&
+     &,nxe,nxv)
+            else
+               call EPOISD13(dcu(1,2),eyz,isign,fff,ax,affp,wp0,ci,wf,nx&
+     &,nxe,nxv)
+            endif
+         end select
+         end subroutine jiepoisd13
 !
       end module dfield1d

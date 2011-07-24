@@ -99,6 +99,11 @@ void epois13(double complex dcu[], double complex eyz[], int isign,
 void wpmxn1(double qe[], double qi0, double qbme, double *wpmax,
             double *wpmin, int nx, int nxe);
 
+void addqei1(double qe[], double qi[], int nx, int nxe);
+
+void addqei1x(double qe[], double qi[], double qbme, double qbmi,
+              double *wpmax, double *wpmin, int nx, int nxe);
+
 void baddext1(double byz[], double omy, double omz, int nx, int nxe);
 
 void vrcopy1(double f[], double g[], int nx, int ndim, int nxv);

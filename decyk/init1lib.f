@@ -5,12 +5,18 @@ c            co-ordinates:
 c DISTR1 initializes x and vx co-ordinates for 1d code.
 c DISTR1H initializes x and vx,vy,vz co-ordinates for magnetized
 c         1-2/2d codes.
+c FDISTR1 initializes x co-ordinate for 1d code, with general
+c         distribution in space.
+c VDISTR1 initializes vx co-ordinate for 1d code, with maxwellian
+c         velocity distribution with drift.
+c VDISTR1H initializes vx, vy, vz co-ordinates for 1-2/2d code, with
+c          maxwellian velocity distribution with drift.
 c GBDISTR1L calculates guiding centers for magnetized 1-2/2d codes.
 c ranorm = generates gaussian random numbers.
 c randum = generates uniform random numbers.
 c written by viktor k. decyk, ucla
 c copyright 1994, regents of the university of california
-c update: july 3, 2010
+c update: july 16, 2011
 c-----------------------------------------------------------------------
       subroutine DISTR1(part,vtx,vdx,npx,idimp,nop,nx,ipbc)
 c for 1d code, this subroutine calculates initial particle co-ordinate
@@ -36,15 +42,15 @@ c local data
       double precision dsum1
       double precision ranorm
 c set boundary values
-      edgelx = 0.
-      at1 = float(nx)/float(npx)
+      edgelx = 0.0
+      at1 = real(nx)/real(npx)
       if (ipbc.eq.2) then
-         edgelx = 1.
-         at1 = float(nx-2)/float(npx)
+         edgelx = 1.0
+         at1 = real(nx-2)/real(npx)
       endif
 c uniform density profile
       do 10 j = 1, npx
-      part(1,j) = edgelx + at1*(float(j) - .5)
+      part(1,j) = edgelx + at1*(real(j) - .5)
    10 continue
 c maxwellian velocity distribution
       do 20 j = 1, npx
@@ -56,7 +62,7 @@ c add correct drift
       dsum1 = dsum1 + part(2,j)
    30 continue
       sum1 = dsum1
-      sum1 = sum1/float(npx) - vdx
+      sum1 = sum1/real(npx) - vdx
       do 40 j = 1, npx
       part(2,j) = part(2,j) - sum1
    40 continue
@@ -90,15 +96,15 @@ c local data
       double precision dsum1, dsum2, dsum3
       double precision ranorm
 c set boundary values
-      edgelx = 0.
-      at1 = float(nx)/float(npx)
+      edgelx = 0.0
+      at1 = real(nx)/real(npx)
       if (ipbc.eq.2) then
-         edgelx = 1.
-         at1 = float(nx-2)/float(npx)
+         edgelx = 1.0
+         at1 = real(nx-2)/real(npx)
       endif
 c uniform density profile
       do 10 j = 1, npx
-      part(1,j) = edgelx + at1*(float(j) - .5)
+      part(1,j) = edgelx + at1*(real(j) - .5)
    10 continue
 c maxwellian velocity distribution
       do 20 j = 1, npx
@@ -118,7 +124,7 @@ c add correct drift
       sum1 = dsum1
       sum2 = dsum2
       sum3 = dsum3
-      at1 = 1.0/float(npx)
+      at1 = 1.0/real(npx)
       sum1 = at1*sum1 - vdx
       sum2 = at1*sum2 - vdy
       sum3 = at1*sum3 - vdz
@@ -129,8 +135,8 @@ c add correct drift
    40 continue
       return
       end
-      subroutine FDISTR1(part,fnx,argx1,argx2,argx3,npx,idimp,nop,nx,ier
-     1r)
+      subroutine FDISTR1(part,fnx,argx1,argx2,argx3,npx,idimp,nop,nx,ipb
+     1c,ierr)
 c for 1d code, this subroutine calculates initial particle co-ordinates
 c with general density profile where density in x is given by
 c n(x) = fnx(x,argx1,argx2,argx3,0) and integral of the density is given
@@ -142,9 +148,11 @@ c npx = initial number of particles distributed in x direction
 c idimp = size of phase space = 2 or 4
 c nop = number of particles
 c nx = system length in x direction
+c ipbc = particle boundary condition = (0,1,2) =
+c (none,2d periodic,2d reflecting)
 c ierr = (0,1) = (no,yes) error condition exists
       implicit none
-      integer npx, idimp, nop, nx, ierr
+      integer npx, idimp, nop, nx, ipbc, ierr
       real argx1, argx2, argx3, part
       dimension part(idimp,nop)
       real fnx
@@ -160,16 +168,19 @@ c eps = convergence criterion
       big = 0.5
 c set boundary value
       edgelx = 0.
+      if (ipbc.eq.2) then
+         edgelx = 1.0
+      endif
 c find normalization for function
-      anx = float(nx) - edgelx
+      anx = real(nx) - edgelx
       x0 = fnx(edgelx,argx1,argx2,argx3,1)
-      bnx = float(npx)/(fnx(anx,argx1,argx2,argx3,1) - x0)
+      bnx = real(npx)/(fnx(anx,argx1,argx2,argx3,1) - x0)
       x0 = bnx*x0 - .5
 c density profile in x
       xt0 = edgelx
       xt = xt0 + 0.5/(bnx*fnx(xt0,argx1,argx2,argx3,0))
       do 20 j = 1, npx
-      xn = float(j) + x0
+      xn = real(j) + x0
 c guess next value for xt
       if (j.gt.1) xt = xt + 1.0/(bnx*fnx(xt,argx1,argx2,argx3,0))
       xt = max(edgelx,min(xt,anx))
@@ -370,7 +381,7 @@ c add correct drift
       dsum1 = dsum1 + part(2,j)
    20 continue
       sum1 = dsum1
-      at1 = 1./float(nop)
+      at1 = 1./real(nop)
       sum1 = at1*sum1 - vdx
       do 30 j = 1, nop
       part(2,j) = part(2,j) - sum1
@@ -416,7 +427,7 @@ c add correct drift
       sum1 = dsum1
       sum2 = dsum2
       sum3 = dsum3
-      at1 = 1./float(nop)
+      at1 = 1./real(nop)
       sum1 = at1*sum1 - vdx
       sum2 = at1*sum2 - vdy
       sum3 = at1*sum3 - vdz
@@ -462,16 +473,16 @@ c local data
       real edgelx, edgerx, dxp, amx, omy, omz, at3, omyt, omzt, dx
 c set boundary values
       edgelx = 0.0
-      edgerx = float(nx)
+      edgerx = real(nx)
       if (ipbc.eq.2) then
          edgelx = 1.0
-         edgerx = float(nx-1)
+         edgerx = real(nx-1)
       endif
 c calculate actual position from guiding center
       do 10 j = 1, nop
 c find interpolation weights
       nn = part(1,j)
-      dxp = qbm*(part(1,j) - float(nn))
+      dxp = qbm*(part(1,j) - real(nn))
       nn = nn + 1
       amx = qbm - dxp
 c find magnetic field
@@ -487,8 +498,8 @@ c correct position
 c periodic boundary conditions
       if (ipbc.eq.1) then
          n = abs(dx)/edgerx
-         if (dx.lt.edgelx) dx = dx + float(n + 1)*edgerx
-         if (dx.ge.edgerx) dx = dx - float(n)*edgerx
+         if (dx.lt.edgelx) dx = dx + real(n + 1)*edgerx
+         if (dx.ge.edgerx) dx = dx - real(n)*edgerx
 c reflecting boundary conditions
       else if (ipbc.eq.2) then
          if ((dx.lt.edgelx).or.(dx.ge.edgerx)) then

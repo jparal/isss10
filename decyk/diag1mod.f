@@ -4,6 +4,7 @@
 !
 ! Fortran90 interface to 1d PIC Fortran77 library diag1lib.f
 ! diag1mod.f contains diagnostic procedures:
+!            defines module diag1d
 ! wtimer performs wall clock timing.
 ! get_funit returns an unconnected fortran unit number.
 ! bfopen => bfopen1 opens binary file for real 1d scalar data.
@@ -34,21 +35,26 @@
 !            calls PSDIST13 or PSDIST1
 ! written by viktor k. decyk, ucla
 ! copyright 2000, regents of the university of california
-! update: july 11, 2011
+! update: july 18, 2011
 !
       use globals, only: LINEAR, QUADRATIC
       use init1d, only: idrun, indx, ntp, nta, nte, psolve, tend, dt,   &
-     &ndim, omx, omy, omz, ci, t0, ceng, pot1d, modesxp, nprec, fpname, &
-     &vpot1d, modesxa, narec, faname, em1d, modesxe, nerec, fename
+     &ndim, omx, omy, omz, ci, ntd, ntj, t0, ceng, pot1d, modesxp,      &
+     &nprec, fpname, vpot1d, modesxa, narec, faname, em1d, modesxe,     &
+     &nerec, fename, den1d, modesxd, ndrec, fdname, vcur1d, modesxj,    &
+     &njrec, fjname
 !
       implicit none
       private
       public :: LINEAR, QUADRATIC
       public :: idrun, indx, ntp, nta,  nte, psolve
-      public :: tend, dt, ndim, omx, omy, omz, ci, t0, ceng
+      public :: tend, dt, ndim, omx, omy, omz, ci, ntd, ntj
+      public :: t0, ceng
       public :: pot1d, modesxp, nprec, fpname
       public :: vpot1d, modesxa,  narec, faname
       public :: em1d, modesxe,  nerec, fename
+      public :: den1d, modesxd, ndrec, fdname
+      public :: vcur1d, modesxj, njrec, fjname
       public :: wtimer, get_funit
       public :: bfopen, writebf, readbf
 !     public :: writef

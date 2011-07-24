@@ -1,4 +1,4 @@
-      subroutine residue_vtx(    &
+      subroutine residue_vtx(nvtx,ijkvtx,    &
           srce,    &
           p,residu)
 !
@@ -8,9 +8,9 @@
       use vast_kind_param, ONLY : double
       use geometry_com_M
       use blcom_com_M, ONLY : periodic_x,periodic_y,periodic_z,   &
-        ijkcell,ijkvtx,vol,    &
+        ijkcell,vol,    &
         gradx,grady,gradz,divu
-      use cindex_com_M, ONLY : ncells,nvtx,iwid,jwid,kwid,ibp1,jbp1,kbp1
+      use cindex_com_M, ONLY : ncells,iwid,jwid,kwid,ibp1,jbp1,kbp1
       use cophys_com_M, ONLY : cdlt,sdlt,dz
       use corgan_com_M, ONLY : strait
       implicit none
@@ -21,6 +21,7 @@
           residu(*)
       real(double) :: zero
       integer :: n,ijk,ibp2,jbp2,kbp2
+      integer :: nvtx, ijkvtx(*)
 !
 !     calculate residue
 !     NOTE:  if periodic in x or y, the residue is calculated only

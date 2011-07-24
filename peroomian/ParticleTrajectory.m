@@ -131,7 +131,7 @@ set(gca,'xdir','reverse','TickDir','out','XMinorTick','on', 'YMinorTick','on',..
 title=strcat('Particle # ',PARTICLE);
 posx=(x_min - x_max)/2. ;
 posy=z_max+2;
-text(posx,posy,title,'FontSize',20,'FontWeight','Bold','color','r','HorizontalAlignment','center')
+text(posx,posy,title) %,'FontSize',20,'FontWeight','Bold','color','r','HorizontalAlignment','center')
                            
                            
                       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -30,7 +30,6 @@
       real(double) :: bxn(*), byn(*), bzn(*)
       real(double) :: wi,wim,wip,wj,wjm,wjp,wk,wkm,wkp
       real(double) :: Tstart, Tfinish, TotalMass, sumwate
-      real(double) :: numberLocal, massLocal, bxLocal, byLocal, bzLocal, nrgLocal
       integer :: ijkstep(27)
 !
 !      a routine to interpolate particle data to the grid
@@ -78,8 +77,7 @@
       NumThreads=OMP_GET_NUM_THREADS()
       MyThread=OMP_GET_THREAD_NUM()+1
 !$omp do reduction(+:nptotl), private(ijk,np,i,j,k,ll),    &
-!$omp private(wi,wim,wip,wj,wjm,wjp,wk,wkm,wkp),             &
-!$omp private(numberLocal,massLocal,nrgLocal,bxLocal,byLocal,bzLocal)
+!$omp private(wi,wim,wip,wj,wjm,wjp,wk,wkm,wkp)
       
       do n=1,ncells
          ijk=ijkcell(n)
@@ -144,6 +142,10 @@
            wate(n,26)=wi*wjm*wkp
            wate(n,27)=wip*wjm*wkp
 !
+     sumwate=0.0
+     do ll=1,27
+        sumwate=sumwate+wate(n,ll)
+     enddo
             do ll=1,27
                 number_tmp(ijk+ijkstep(ll),MyThread)=number_tmp(ijk+ijkstep(ll),MyThread)   &
                   +wate(n,ll)
@@ -164,20 +166,22 @@
       enddo
 !$omp end parallel
 !
+
       call OMP_SET_NUM_THREADS(1)
 !
 !
-!!!!!!      call OMP_SET_NUM_THREADS(8)
+      call OMP_SET_NUM_THREADS(8)
 !
       nptotl=0
       TotalMass=0.0
-!!!!!$omp parallel do private(l), reduction(+:TotalMass, nptotl),   &
-!!!!!$omp shared(mc,sie1p,bxn,byn,bzn,number),   &
-!!!!!$omp shared(NumThreads)
+!$omp parallel shared (mc,sie1p,bxn,byn,bzn,number),                    &
+!$omp shared(NumThreads)
+      NumThreads=OMP_GET_NUM_THREADS()
+!$omp do reduction(+:TotalMass,nptotl), private(l)
+!
 !
       do n=1,ntmp
-!!!!         do l=1,NumThreads
-       do l=1,8
+       do l=1,NumThreads
             mc(n)=mc(n)+mc_tmp(n,l)
             sie1p(n)=sie1p(n)+sie1p_tmp(n,l)
             bxn(n)=bxn(n)+bxn_tmp(n,l)
@@ -188,9 +192,9 @@
          TotalMass=TotalMass+mc(n)
          nptotl=nptotl+number(n)
       enddo
+!$omp end parallel
 !
-!`      call OMP_SET_NUM_THREADS(1)
-
+     call OMP_SET_NUM_THREADS(1)
 !     impose boundary conditions on particle data
 !
       nptotl=0
@@ -234,6 +238,7 @@
          ijk=ijkcell(n)
          nptotl=nptotl+number(ijk)
       enddo
+!
       call bc_particles(ibar,jbar,kbar,iwid,jwid,kwid,   &
           periodic_x,periodic_y,periodic_z,   &
           mc)

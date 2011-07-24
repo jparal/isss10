@@ -12,7 +12,7 @@
 ! written by viktor k. decyk, ucla
 ! Fortran 90 for Macintosh G3
 ! copyright 1999, regents of the university of california
-! update: july 6, 2011
+! update: july 13, 2011
       program dbeps1
       use init1d
       use bpush1d
@@ -337,7 +337,7 @@
          it = ntime/nta
          if (ntime==nta*it) then
 ! calculate vector potential in fourier space
-            call apois(cu,vfield,ffc,ci,wm,nx,inorder)
+            call apois(cu,vfield,ffc,ci,ws,nx,inorder)
 ! store selected fourier modes
             call gtmodes(vfield,vpott,nx,modesxa,inorder)
 ! write diagnostic output

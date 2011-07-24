@@ -13,7 +13,7 @@ c gks device driver for Ygl 4.0 graphics
 c written by viktor k. decyk, ucla
 c copyright 1997, regents of the university of california
 c version for ibm rs/6000
-c update: september 9, 2009
+c update: july 12, 2011
       block data
       parameter(maxt=3)
       common /gksgl/ kosv,iwk,idc,keydv,mousdv,nrtn,itx,ity,kcf,lcl,lcm,
@@ -280,8 +280,8 @@ c return size of a window
 c llx/lly = current window width/height
       lx = llx
       ly = lly
-      dcx = float(lx - 1)
-      dcy = float(ly - 1)
+      dcx = real(lx - 1)
+      dcy = real(ly - 1)
       ierr = 0
       return
       end
@@ -325,8 +325,8 @@ c wwnvp = workstation window and viewport
 c return size of a window
       call getsiz(llx,lly)
 c llx/lly = current window width/height
-      dcx = float(llx - 1)
-      dcy = float(lly - 1)
+      dcx = real(llx - 1)
+      dcy = real(lly - 1)
 c clip to maximum screen size
       wwnvp(5) = amax1(xmin,0.)
       wwnvp(7) = amax1(ymin,0.)
@@ -406,9 +406,9 @@ c return size of a window
       call getsiz(llx,lly)
 c llx/lly = current window width/height
       earea(1) = 0.
-      earea(2) = float(llx - 1)
+      earea(2) = real(llx - 1)
       earea(3) = 0.
-      earea(4) = float(lly - 1)
+      earea(4) = real(lly - 1)
       ldr = 1
       ierr = 0
       return
@@ -727,12 +727,12 @@ c reset viewport to maximum screen size
 c set the area of window used for drawing
          call viewpo(minx,maxx,miny,maxy)
 c calculate new window to preserve scaling
-         scx = (trans(6,n) - trans(5,n))/float(idvt(2) - idvt(1))
-         scy = (trans(8,n) - trans(7,n))/float(idvt(4) - idvt(3))
-         xmin = trans(5,n) + (wwnvp(5) - float(idvt(1)))*scx
-         xmax = trans(5,n) + (wwnvp(6) - float(idvt(1)))*scx
-         ymin = trans(7,n) + (wwnvp(7) - float(idvt(3)))*scy
-         ymax = trans(7,n) + (wwnvp(8) - float(idvt(3)))*scy
+         scx = (trans(6,n) - trans(5,n))/real(idvt(2) - idvt(1))
+         scy = (trans(8,n) - trans(7,n))/real(idvt(4) - idvt(3))
+         xmin = trans(5,n) + (wwnvp(5) - real(idvt(1)))*scx
+         xmax = trans(5,n) + (wwnvp(6) - real(idvt(1)))*scx
+         ymin = trans(7,n) + (wwnvp(7) - real(idvt(3)))*scy
+         ymax = trans(7,n) + (wwnvp(8) - real(idvt(3)))*scy
 c define orthographic transformation
          call ortho2(xmin,xmax,ymin,ymax)
       endif
@@ -810,9 +810,9 @@ c special case of a line to itself
          if ((px(2).eq.ax).and.(py(2).eq.ay)) then
 c calculate transformation factors
             m = nrtn + 1
-            eps = (trans(6,m) - trans(5,m))/float(idvt(2) - idvt(1))
+            eps = (trans(6,m) - trans(5,m))/real(idvt(2) - idvt(1))
             ax = ax - eps
-            eps = (trans(8,m) - trans(7,m))/float(idvt(4) - idvt(3))
+            eps = (trans(8,m) - trans(7,m))/real(idvt(4) - idvt(3))
             ay = ay - eps
          endif
       endif
@@ -930,10 +930,10 @@ c return width of the specified string
          icw = strwid(amks(mtc),1)
 c convert to world coordinates
          m = nrtn + 1
-         scx = (trans(6,m) - trans(5,m))/float(idvt(2) - idvt(1))
-         scy = (trans(8,m) - trans(7,m))/float(idvt(4) - idvt(3))
-         dx = .5*float(icw)*scx
-         dy = .5*float(ich)*scy
+         scx = (trans(6,m) - trans(5,m))/real(idvt(2) - idvt(1))
+         scy = (trans(8,m) - trans(7,m))/real(idvt(4) - idvt(3))
+         dx = .5*real(icw)*scx
+         dy = .5*real(ich)*scy
          do 20 j = 1, n
 c shift origin of character
          ax = px(j) - dx
@@ -984,8 +984,8 @@ c return maximum character height in current raster font
       ich = gethei()
 c convert to world coordinates
       m = nrtn + 1
-      scy = (trans(8,m) - trans(7,m))/float(idvt(4) - idvt(3))
-      chh = float(ich)*scy
+      scy = (trans(8,m) - trans(7,m))/real(idvt(4) - idvt(3))
+      chh = real(ich)*scy
       ierr = 0
       return
       end
@@ -1140,10 +1140,10 @@ c return width of the specified string
       icw = strwid(chars,n)
 c convert to world coordinates
       m = nrtn + 1
-      scx = (trans(6,m) - trans(5,m))/float(idvt(2) - idvt(1))
-      scy = (trans(8,m) - trans(7,m))/float(idvt(4) - idvt(3))
-      cbx = float(icw)*scx
-      cby = float(ich)*scy
+      scx = (trans(6,m) - trans(5,m))/real(idvt(2) - idvt(1))
+      scy = (trans(8,m) - trans(7,m))/real(idvt(4) - idvt(3))
+      cbx = real(icw)*scx
+      cby = real(ich)*scy
 c determine horizontal offset
       cx = px
       if (itx.eq.2) then
@@ -1274,10 +1274,10 @@ c find location of upper left and lower right hand corner of image
       yl = amin1(py,qy)
 c calculate transformation factors
       m = nrtn + 1
-      scx = float(idvt(2) - idvt(1))/(trans(6,m) - trans(5,m))
-      aminx = float(idvt(1)) - trans(5,m)*scx
-      scy = float(idvt(4) - idvt(3))/(trans(8,m) - trans(7,m))
-      aminy = float(idvt(3)) - trans(7,m)*scy
+      scx = real(idvt(2) - idvt(1))/(trans(6,m) - trans(5,m))
+      aminx = real(idvt(1)) - trans(5,m)*scx
+      scy = real(idvt(4) - idvt(3))/(trans(8,m) - trans(7,m))
+      aminy = real(idvt(3)) - trans(7,m)*scy
 c convert to screen coordinates
       ax = xu*scx + aminx
       ay = yu*scy + aminy
@@ -1295,7 +1295,7 @@ c calculate size of rescaled raster image
       if (km.gt.lym) km = lym
 c calculate initial offsets
       ipx = ix0 - 1
-      apx = float(ix0) + .5
+      apx = real(ix0) + .5
       apy = 1.5
 c calculate maximum index
       lxs = idx
@@ -1303,8 +1303,8 @@ c     if (idx.gt.lxn) lxs = lxn
       lys = idy
 c     if (idy.gt.lyn) lys = lyn
 c calculate scalings for pixels (dx = dy = 1., for no rescaling)
-      dx = float(ix1 - ix0)/float(lxs - 1)
-      dy = float(lys - 1)/float(iy0 - iy1)
+      dx = real(ix1 - ix0)/real(lxs - 1)
+      dy = real(lys - 1)/real(iy0 - iy1)
 c invf = (0,1) = (no,yes) image should be inverted vertically
       if (py.ge.qy) then
          invf = 1
@@ -1316,7 +1316,7 @@ c invf = (0,1) = (no,yes) image should be inverted vertically
       joff = ncs - 1
 c outer loop over rows
       do 50 kk = 1, km
-      k = dy*float(kk - 1) + apy
+      k = dy*real(kk - 1) + apy
 c normal image
       if (invf.eq.0) then
          k1 = k + koff
@@ -1331,7 +1331,7 @@ c move cursor
       ixp = ix0
 c next loop over bytes in row of color plane
       do 40 j = 1, lxs
-      ix = dx*float(j - 1) + apx
+      ix = dx*real(j - 1) + apx
       itc = icola(j+joff,k1)
 c no change in color
       if (itc.eq.idr) then
@@ -1426,12 +1426,12 @@ c reset viewport to maximum screen size
 c set the area of window used for drawing
          call viewpo(minx,maxx,miny,maxy)
 c calculate new window to preserve scaling
-         scx = (trans(6,m) - trans(5,m))/float(idvt(2) - idvt(1))
-         scy = (trans(8,m) - trans(7,m))/float(idvt(4) - idvt(3))
-         xmin = trans(5,m) + (wwnvp(5) - float(idvt(1)))*scx
-         xmax = trans(5,m) + (wwnvp(6) - float(idvt(1)))*scx
-         ymin = trans(7,m) + (wwnvp(7) - float(idvt(3)))*scy
-         ymax = trans(7,m) + (wwnvp(8) - float(idvt(3)))*scy
+         scx = (trans(6,m) - trans(5,m))/real(idvt(2) - idvt(1))
+         scy = (trans(8,m) - trans(7,m))/real(idvt(4) - idvt(3))
+         xmin = trans(5,m) + (wwnvp(5) - real(idvt(1)))*scx
+         xmax = trans(5,m) + (wwnvp(6) - real(idvt(1)))*scx
+         ymin = trans(7,m) + (wwnvp(7) - real(idvt(3)))*scy
+         ymax = trans(7,m) + (wwnvp(8) - real(idvt(3)))*scy
 c define orthographic transformation
          call ortho2(xmin,xmax,ymin,ymax)
       endif
@@ -1473,10 +1473,10 @@ c trans = normalization transformations
       n = len(str)
 c convert to world coordinates
       m = nrtn + 1
-      scx = (trans(6,m) - trans(5,m))/float(idvt(2) - idvt(1))
-      scy = (trans(8,m) - trans(7,m))/float(idvt(4) - idvt(3))
-      cx = trans(5,m) + (cea(1) - float(idvt(1)))*scx
-      cy = trans(7,m) + (cea(3) - float(idvt(3)))*scy
+      scx = (trans(6,m) - trans(5,m))/real(idvt(2) - idvt(1))
+      scy = (trans(8,m) - trans(7,m))/real(idvt(4) - idvt(3))
+      cx = trans(5,m) + (cea(1) - real(idvt(1)))*scx
+      cy = trans(7,m) + (cea(3) - real(idvt(3)))*scy
 c returns the current color
       iccl = getcol()
 c set current color in color map mode to current text color
@@ -1536,20 +1536,20 @@ c try again if no valuators returned
       if ((jdev.ne.mosx).and.(jdev.ne.mosy)) go to 20
 c x valuator read first
       if (jdev.eq.mosx) then
-         qx = float(cs - ix)
+         qx = real(cs - ix)
 c read first entry in event queue
    30    kdev = qread(cs)
 c try again if not y valuator
          if (kdev.ne.mosy) go to 30
-         qy = float(cs - iy)
+         qy = real(cs - iy)
 c y valuator read first
       else
-         qy = float(cs - iy)
+         qy = real(cs - iy)
 c read first entry in event queue
    40    kdev = qread(cs)
 c try again if not y valuator
          if (kdev.ne.mosx) go to 40
-         qx = float(cs - ix)
+         qx = real(cs - ix)
       endif
 c calculate transformation factors
       scx = (trans(6,1) - trans(5,1))/(wwnvp(6) - wwnvp(5))
@@ -1684,19 +1684,19 @@ c read first entry in event queue
 c try again if no valuators returned
       if ((idev.ne.mosx).and.(idev.ne.mosy)) go to 10
       if (idev.eq.mosx) then
-         qx = float(cs - ix)
+         qx = real(cs - ix)
 c read first entry in event queue
    20    jdev = qread(cs)
 c try again if not y valuator
          if (jdev.ne.mosy) go to 20
-         qy = float(cs - iy)
+         qy = real(cs - iy)
       elseif (idev.eq.mosy) then
-         qy = float(cs - iy)
+         qy = real(cs - iy)
 c read first entry in event queue
    40    jdev = qread(cs)
 c try again if not y valuator
          if (jdev.ne.mosx) go to 40
-         qx = float(cs - ix)
+         qx = real(cs - ix)
       endif
 c calculate transformation factors
       scx = (trans(6,1) - trans(5,1))/(wwnvp(6) - wwnvp(5))
@@ -1768,13 +1768,13 @@ c return size of a window
       call getsiz(lx,ly)
 c lx/ly = current window width/height
       if (lx.gt.ly) then
-         wwnvp(5) = .5*float(lx - ly)
-         wwnvp(8) = float(ly - 1)
+         wwnvp(5) = .5*real(lx - ly)
+         wwnvp(8) = real(ly - 1)
          wwnvp(6) = wwnvp(5) + wwnvp(8)
          wwnvp(7) = 0.
       else
-         wwnvp(6) = float(lx - 1)
-         wwnvp(7) = .5*float(ly - lx)
+         wwnvp(6) = real(lx - 1)
+         wwnvp(7) = .5*real(ly - lx)
          wwnvp(5) = 0.
          wwnvp(8) = wwnvp(6) + wwnvp(7)
       endif

@@ -57,10 +57,13 @@ c            momentum flux and acceleration density.
 c EPOIS13 solve vector poisson equation for transverse electric field
 c         or force.
 c WPMXN1 calculates maximum and minimum plasma frequency.
+c ADDQEI1 adds electron and ion densities.
+c ADDQEI1X adds electron and ion densities and calculates maximum and
+c          minimum plasma frequency.
 c BADDEXT1 adds constant to magnetic field in real space for 1-2/2d code
 c written by viktor k. decyk, ucla
 c copyright 1994, regents of the university of california
-c update: july 8, 2010
+c update: july 16, 2011
 c-----------------------------------------------------------------------
       subroutine CGUARD1(byz,nx,nxe)
 c replicate extended periodic field
@@ -302,11 +305,11 @@ c local data
       real dnx, dkx, at1, at2
       double precision wp
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       if (isign.ne.0) go to 20
 c prepare form factor array
       do 10 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       ffc(2*j) = exp(-.5*(dkx*ax)**2)
       ffc(2*j-1) = affp*ffc(2*j)/(dkx*dkx)
    10 continue
@@ -318,14 +321,14 @@ c calculate force/charge and sum field energy
       wp = 0.0d0
       do 30 j = 2, nxh
       at1 = ffc(2*j-1)*ffc(2*j)
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       fx(2*j-1) = at2*q(2*j)
       fx(2*j) = -at2*q(2*j-1)
       wp = wp + at1*(q(2*j-1)**2 + q(2*j)**2)
    30 continue
       fx(1) = 0.
       fx(2) = 0.
-      we = float(nx)*wp
+      we = real(nx)*wp
       return
 c calculate potential and sum field energy
    40 if (isign.gt.1) go to 60
@@ -339,7 +342,7 @@ c calculate potential and sum field energy
    50 continue
       fx(1) = 0.
       fx(2) = 0.
-      we = float(nx)*wp
+      we = real(nx)*wp
       return
 c calculate smoothing
    60 do 70 j = 2, nxh
@@ -405,13 +408,13 @@ c local data
       complex zero, zt1, zt2
       double precision wp
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       zero = cmplx(0.0,0.0)
       ci2 = ci*ci
       if (isign.ne.0) go to 20
 c prepare form factor array
       do 10 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at2 = exp(-.5*(dkx*ax)**2)
       ffc(j) = cmplx(affp*at2/(dkx*dkx),at2)
    10 continue
@@ -423,7 +426,7 @@ c calculate magnetic field and sum field energy
 c mode numbers 0 < kx < nx/2
       do 30 j = 2, nxh
       at1 = ci2*real(ffc(j))*aimag(ffc(j))
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       zt1 = cmplx(-aimag(cu(2,j)),real(cu(2,j)))
       zt2 = cmplx(-aimag(cu(1,j)),real(cu(1,j)))
       byz(1,j) = -at2*zt1
@@ -432,7 +435,7 @@ c mode numbers 0 < kx < nx/2
    30 continue
       byz(1,1) = zero
       byz(2,1) = zero
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
 c calculate vector potential and sum field energy
    40 if (isign.gt.1) go to 60
@@ -447,7 +450,7 @@ c mode numbers 0 < kx < nx/2
    50 continue
       byz(1,1) = zero
       byz(2,1) = zero
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
 c calculate smoothing
 c mode numbers 0 < kx < nx/2
@@ -500,7 +503,7 @@ c local data
       complex zero, zt1, zt2
       double precision wp
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       zero = cmplx(0.,0.)
       ci2 = ci*ci
 c calculate magnetic field and sum field energy
@@ -508,7 +511,7 @@ c calculate magnetic field and sum field energy
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, nxh
       at1 = ci2*real(ffc(j))
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       at1 = at1*aimag(ffc(j))
       zt1 = cmplx(-aimag(cu(2,j)),real(cu(2,j)))
       zt2 = cmplx(-aimag(cu(1,j)),real(cu(1,j)))
@@ -518,7 +521,7 @@ c mode numbers 0 < kx < nx/2
    10 continue
       byz(1,1) = zero
       byz(2,1) = zero
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
       end
       subroutine MAXWEL1(eyz,byz,cu,ffc,ci,dt,wf,wm,nx,nxvh,nxhd)
@@ -571,7 +574,7 @@ c local data
       double precision wp, ws
       if (ci.le.0.) return
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       dth = .5*dt
       c2 = 1./(ci*ci)
       cdt = c2*dt
@@ -585,7 +588,7 @@ c update electromagnetic field and sum field energies
 c calculate the electromagnetic fields
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       afdt = adt*aimag(ffc(j))
 c update magnetic field half time step
       zt1 = cmplx(-aimag(eyz(2,j)),real(eyz(2,j)))
@@ -613,8 +616,8 @@ c update magnetic field half time step and store electric field
       byz(2,1) = zero
       eyz(1,1) = zero
       eyz(2,1) = zero
-      wf = float(nx)*ws
-      wm = float(nx)*c2*wp
+      wf = real(nx)*ws
+      wm = real(nx)*c2*wp
       return
       end
       subroutine EMFIELD1(fxyz,fx,eyz,ffc,nx,nxvh,nxhd)
@@ -725,12 +728,12 @@ c local data
       real dnx, dkx, at2
       complex zero, zt1, zt2
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       zero = cmplx(0.,0.)
 c calculate vector potential
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at2 = 1.0/dkx
       zt1 = cmplx(-aimag(byz(2,j)),real(byz(2,j)))
       zt2 = cmplx(-aimag(byz(1,j)),real(byz(1,j)))
@@ -780,13 +783,13 @@ c local data
       complex zero, zt1, zt2
       if (ci.le.0.) return
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       afc2 = real(ffc(1))*ci*ci
       zero = cmplx(0.,0.)
 c calculate the radiative vector potential
 c mode numbers 0 < kx < nx/2
       do 20 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at1 = 1.0/(dkx*dkx)
       at2 = afc2*aimag(ffc(j))
 c update radiative vector potential
@@ -1007,14 +1010,12 @@ c initialize extended field, with zero in the edges
 c this subroutine calculates transverse part of the derivative of
 c the current density from the momentum flux
 c in 1-2/2d with periodic boundary conditions.
-c the derivative of the current is calculated using the equations:
+c the transverse part of the derivative of the current is calculated
+c using the equations:
 c dcu(1,kx) = -sqrt(-1)*kx*vx*vy
 c dcu(2,kx) = -sqrt(-1)*kx*vx*vz
 c where kx = 2pi*j/nx, and j = fourier mode numbers,
 c except for dcu(i,kx=pi) = dcu(i,kx=0) = 0.
-c on output:
-c dcu(i,j) = transverse part of complex derivative of current for
-c fourier mode (j-1)
 c amu(1,j) = xy component of complex momentum flux
 c amu(2,j) = xz component of complex momentum flux
 c all for fourier mode (j-1)
@@ -1028,11 +1029,11 @@ c nxvh = second dimension of field arrays, must be >= nxh
       real dnx, dkx
       complex zero, zt1, zt2
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       zero = cmplx(0.,0.)
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       zt2 = cmplx(aimag(amu(1,j)),-real(amu(1,j)))
       dcu(1,j) = dkx*zt2
       zt1 = cmplx(aimag(amu(2,j)),-real(amu(2,j)))
@@ -1069,11 +1070,11 @@ c nxvh = second dimension of field arrays, must be >= nxh
       real dnx, dkx
       complex zero, zt1, zt2
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
+      dnx = 6.28318530717959/real(nx)
       zero = cmplx(0.,0.)
 c mode numbers 0 < kx < nx/2
       do 10 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       zt2 = cmplx(aimag(amu(1,j)),-real(amu(1,j)))
       dcu(1,j) = dcu(1,j) + dkx*zt2
       zt1 = cmplx(aimag(amu(2,j)),-real(amu(2,j)))
@@ -1136,14 +1137,14 @@ c nxhd = second dimension of form factor array, must be >= nxh
       complex zero
       double precision wp
       nxh = nx/2
-      dnx = 6.28318530717959/float(nx)
-      zero = cmplx(0.,0.)
+      dnx = 6.28318530717959/real(nx)
+      zero = cmplx(0.0,0.0)
       ci2 = ci*ci
       if (isign.ne.0) go to 20
       wpc = wp0*ci2
 c prepare form factor array
       do 10 j = 2, nxh
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at2 = exp(-.5*(dkx*ax)**2)
       ffe(j) = cmplx(affp*at2/(dkx*dkx+ wpc*at2*at2),at2)
    10 continue
@@ -1164,7 +1165,7 @@ c mode numbers 0 < kx < nx/2
    30 continue
       eyz(1,1) = zero
       eyz(2,1) = zero
-      wf = float(nx)*wp/real(ffe(1))
+      wf = real(nx)*wp/real(ffe(1))
       return
 c calculate unsmoothed transverse electric field and sum field energy
    40 wp = 0.0d0
@@ -1179,7 +1180,7 @@ c mode numbers 0 < kx < nx/2
    50 continue
       eyz(1,1) = zero
       eyz(2,1) = zero
-      wf = float(nx)*wp/real(ffe(1))
+      wf = real(nx)*wp/real(ffe(1))
       return
       end
       subroutine WPMXN1(qe,qi0,qbme,wpmax,wpmin,nx,nxe)
@@ -1201,6 +1202,48 @@ c nxe = first dimension of charge arrays, nxe must be >= nx
       wpmin = wpmax
       do 10 j = 1, nx
       at1 = qbme*(qe(j) - qi0)
+      wpmax = max(wpmax,at1)
+      wpmin = min(wpmin,at1)
+   10 continue
+      return
+      end
+      subroutine ADDQEI1(qe,qi,nx,nxe)
+c adds electron and ion densities
+c assumes guard cells have already been added
+c qe/qi = charge density for electrons/ions
+c nx = system length in x/y direction
+c nxe = first dimension of charge arrays, nxe must be >= nx
+      implicit none
+      real qe, qi
+      integer nx, nxe
+      dimension qe(nxe), qi(nxe)
+c local data
+      integer j
+      do 10 j = 1, nx
+      qe(j) = qe(j) + qi(j)
+   10 continue
+      return
+      end
+      subroutine ADDQEI1X(qe,qi,qbme,qbmi,wpmax,wpmin,nx,nxe)
+c adds electron and ion densities, and calculates maximum and minimum
+c plasma frequency.  assumes guard cells have already been added
+c qe/qi = charge density for electrons/ions
+c qbme/qbmi = charge/mass ratio for electrons/ions
+c wpmax/wpmin = maximum/minimum plasma frequency
+c nx = system length in x direction
+c nxe = first dimension of charge arrays, nxe must be >= nx
+      implicit none
+      real qe, qi, qbme, qbmi, wpmax, wpmin
+      integer nx, nxe
+      dimension qe(nxe), qi(nxe)
+c local data
+      integer j
+      real at1
+      wpmax = qbme*qe(1) + qbmi*qi(1)
+      wpmin = wpmax
+      do 10 j = 1, nx
+      at1 = qbme*qe(j) + qbmi*qi(j)
+      qe(j) = qe(j) + qi(j)
       wpmax = max(wpmax,at1)
       wpmin = min(wpmin,at1)
    10 continue

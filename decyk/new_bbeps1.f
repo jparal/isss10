@@ -9,7 +9,7 @@
 ! written by viktor k. decyk, ucla
 ! Fortran 90 for Macintosh G3
 ! copyright 1999, regents of the university of california
-! update: july 6, 2011
+! update: july 14, 2011
       program bbeps1
       use init1d
       use bpush1d
@@ -307,7 +307,7 @@
 ! solve for darwin electric field
          isign = -1
          call fft(amu,isign,mixup,sct,tfft,indx,inorder)
-         byze = cu
+!        byze = cu
          call dcuperp(byze,amu,nx,inorder)
          call epois_init(ffe,ax,affp,wp0,ci,nx)
          call iepois(byze,eyz,ffe,ci,wf,nx,inorder)

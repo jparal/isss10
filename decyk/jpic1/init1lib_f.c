@@ -15,7 +15,7 @@ double fnx_(double *x, double *argx1, double *argx2, double *argx3,
 
 void fdistr1_(double *part, double (*fnx_)(), double *argx1,
               double *argx2, double *argx3, int *npx, int *idimp,
-              int *nop, int *nx, int *ierr);
+              int *nop, int *nx, int *ipbc, int *ierr);
 
 void vdistr1_(double *part, double *vtx, double *vdx, int *idimp,
               int *nop);
@@ -54,8 +54,9 @@ void distr1h(double part[], double vtx, double vty, double vtz,
 /*--------------------------------------------------------------------*/
 void fdistr1(double part[], double (*fnx_)(), double argx1,
              double argx2, double argx3, int npx, int idimp, int nop,
-             int nx, int *ierr) {
-   fdistr1_(part,fnx_,&argx1,&argx2,&argx3,&npx,&idimp,&nop,&nx,ierr);
+             int nx, int ipbc, int *ierr) {
+   fdistr1_(part,fnx_,&argx1,&argx2,&argx3,&npx,&idimp,&nop,&nx,&ipbc,
+            ierr);
    return;
 }
 

@@ -59,7 +59,7 @@
 !
 !     CALCULATE THE INITIAL RESIDUAL ERROR
 !
-      call residue_vtx(     &
+      call residue_vtx(nvtx,ijkvtx,     &
           srce,     &
           p,residu)
 !
@@ -90,7 +90,7 @@
           periodic_x,periodic_y,periodic_z,     &
           q)
 !
-      call residue_vtx(     &
+      call residue_vtx(nvtx,ijkvtx,     &
           srce,     &
           q,Aq)
 !
@@ -172,7 +172,7 @@
 !     calculate Aq
 !
 !
-      call residue_vtx(     &
+      call residue_vtx(nvtx,ijkvtx,     &
           srce,     &
           q,     &
           Aq)

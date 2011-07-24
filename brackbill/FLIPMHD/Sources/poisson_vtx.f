@@ -39,7 +39,7 @@
       precon=.true.
       precon=.false.
 !
-      call residue_vtx(    &
+      call residue_vtx(nvtx,ijkvtx,    &
           srce,    &
           phi,residu)
 !
@@ -65,7 +65,7 @@
        do while(it.le.itmax.and.rnorm.gt.error*refnorm)
         it=it+1
 !
-        call residue_vtx(     &
+        call residue_vtx(nvtx,ijkvtx,     &
             srce,     &
             phi,residu)
 !

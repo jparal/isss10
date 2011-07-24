@@ -13,7 +13,8 @@
       use gmres_com_M, ONLY : srce, phi
       use DXFiles
 !
-      real(double) ::  rnorm,bnorm,refnorm,vvolaxis,fmo,zero,factor,dummy,totalvolume
+      real(double) ::  rnorm,bnorm,refnorm,vvolaxis,    &
+         fmo,zero,factor,dummy,totalvolume,vtxmass,cellmass
       real(double) :: Half, One, Bsq, GradPhisq, BGradPhi
       integer :: n,itest,istart,istop,jstart,jstop,kstart,kstop,    &
           itsub,ijkr,ijkl,nvtxtmp
@@ -28,19 +29,34 @@
 !
 !      this stuff is a carryover from the toroidal version
 !
-       if(rmaj.gt.0.0) then
-       call torusbcv(ibp1+1,jbp1+1,kbp1+1,     &
-          cdlt,sdlt,DUMMY,dz,     &
-          periodic_x,periodic_y,periodic_z,     &
-          umom,vmom,wmom)
-       else
-       call torusbc_scalar(ibp2,jbp2,kbp2,     &
-          umom)
-       call torusbc_scalar(ibp2,jbp2,kbp2,     &
-          vmom)
-       call torusbc_scalar(ibp2,jbp2,kbp2,     &
-          wmom)
-       end if
+          if(rmaj.gt.0.0) then
+             call torusbcv(ibp1+1,jbp1+1,kbp1+1,     &
+                cdlt,sdlt,DUMMY,dz,     &
+                periodic_x,periodic_y,periodic_z,     &
+             umom,vmom,wmom)
+          else
+             call torusbc_scalar(ibp2,jbp2,kbp2,     &
+                umom)
+             call torusbc_scalar(ibp2,jbp2,kbp2,     &
+                vmom)
+             call torusbc_scalar(ibp2,jbp2,kbp2,     &
+                wmom)
+          end if
+!
+   vtxmass=0.0
+      do n=1,nvtx
+         ijk=ijkvtx(n)
+         mv(ijk)=0.0
+         do is=1,nsp
+            mv(ijk)=mv(ijk)+mv_s(ijk,is)
+         enddo
+       vtxmass=vtxmass+mv(ijk)
+      enddo
+
+      do is=1,nsp
+        call torusbcS_scalar(ibp1+1,jbp1+1,kbp1+1,    &
+           mv_s,is)
+      enddo
 !
       call torusbc_scalar(ibp1+1,jbp1+1,kbp1+1,    &
           mv)
@@ -63,11 +79,21 @@
           numberv)
        call axisavg(ibp1,jbp1,iwid,jwid,kwid,     &
           color)
+!
+!     *********************************************
 !
       else
 !
 !      this routine imposes periodicity in x and y
 !
+      do n=1,nvtx
+         ijk=ijkvtx(n)
+         mv(ijk)=0.0
+         do is=1,nsp
+            mv(ijk)=mv(ijk)+mv_s(ijk,is)
+         enddo
+      enddo
+!
        call torusbc_scalar(ibp2,jbp2,kbp2,     &
           umom)
 !
@@ -80,6 +106,10 @@
        call torusbc_scalar(ibp2,jbp2,kbp2,     &
           mv)
 !
+       do is=1,nsp
+          call torusbcS_scalar(ibp2,jbp2,kbp2,     &
+             mv_s,is)
+       enddo
        call torusbc_scalar(ibp2,jbp2,kbp2,     &
           numberv)
 !
@@ -135,11 +165,13 @@
 !
       refnorm=0.0
       totalvolume=0.0
+      cellmass=0.0
 !
       do n=1,ncells
          ijk=ijkcell(n)
 !
          rho(ijk)=mc(ijk)/(vol(ijk)+1.e-10)
+         cellmass=cellmass+mc(ijk)
 !
          bmagx(ijk)=bmagx(ijk)/(vol(ijk)+1.e-10)
          bmagy(ijk)=bmagy(ijk)/(vol(ijk)+1.e-10)
@@ -171,14 +203,14 @@
 !
 !     set ghost cell values of b to zero
 !
-!jub      call bc_ghost(ibp1+1,jbp1+1,kbp1+1,iwid,jwid,kwid,
-!jub     &     bxn,byn,bzn)
+      call bc_ghost(ibp1+1,jbp1+1,kbp1+1,iwid,jwid,kwid,    &
+          bxn,byn,bzn)
 !
       zero=0.0
 !
-      call torusbc(ibp2,jbp2,kbp2,     &
-          zero,                        &
-          bxn,byn,bzn)
+!      call torusbc(ibp2,jbp2,kbp2,     &
+!          zero,                        &
+!          bxn,byn,bzn)
 !
       if(.not.cartesian) then
 !    adjust rho on the k=2 and k=kbp1 boundaries
@@ -210,17 +242,15 @@
 !
 !     1.  Calculate the divergence of M
 !
+      call bc_ghost(ibp1+1,jbp1+1,kbp1+1,iwid,jwid,kwid,   &
+          bxn,byn,bzn)
+
       call divv(    &
          bxn,byn,bzn,srce)
+!x
+       call torusbc_scalar(ibp2,jbp2,kbp2,     &
+          srce)
 !
-      rnorm=0.0
-      do n=1,nvtx
-         ijk=ijkvtx(n)
-         rnorm=rnorm+dabs(srce(ijk))
-      enddo
-!
-!jub      call torusbc_scalar(ibp1+1,jbp1+1,kbp1+1,
-!jub     &     srce)
 !
       call setzero(nvtx,ijkvtx,wate(1,7))
 !
@@ -242,14 +272,22 @@
           iwid,jwid,kwid,      &
           nvtxtmp,ijktmp2)
 !
+      rnorm=0.0
+      do n=1,nvtxtmp
+         ijk=ijktmp2(n)
+         rnorm=rnorm+dabs(srce(ijk))
+      enddo
+
+      phi=0.0
+
       do n=1,nvtxtmp
       ijk=ijktmp2(n)
 !
 !     set initial guess equal to source
 !
-      if(ncyc.eq.1) then
+!!!!      if(ncyc.eq.1) then
       phi(ijk)=srce(ijk)
-      endif
+!!!!      endif
       enddo
 !
       call bc_scalar(ibp1+1,jbp1+1,kbp1+1,     &
@@ -259,7 +297,7 @@
       itest = 1
       itmax=10
       itsub=5
-      error=1.e-5
+      error=1.e-6
       if(itest .eq. 1)then
          if(rnorm.gt.error*refnorm) then
             call poisson_vtx(nvtxtmp,ijktmp2,refnorm,    &
@@ -304,6 +342,18 @@
       bzl(ijk)=bzn(ijk)
       enddo
 !
+      call divv(    &
+         bxn,byn,bzn,srce)
+!
+             call torusbc_scalar(ibp2,jbp2,kbp2,     &
+                srce)
+
+      rnorm=0.0
+      do n=1,nvtxtmp
+         ijk=ijktmp2(n)
+         rnorm=rnorm+dabs(srce(ijk))
+      enddo
+
 
       call bc_ghost(ibp1+1,jbp1+1,kbp1+1,iwid,jwid,kwid,    &
           bxn,byn,bzn)

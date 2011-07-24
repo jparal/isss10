@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c 1d PIC library for solving field equations with dirichlet boundary
 c conditions
-c dfield2lib.f contains procedures to manage guard cells and solve
+c dfield1lib.f contains procedures to manage guard cells and solve
 c              fields equations in fourier space for dirichlet
 c              boundary conditions:
 c LCGUARD1 replicates fields for 2 component vector array to replace
@@ -26,6 +26,10 @@ c DBLSIN1A creates doubled array for 2 component vector data to enable
 c          various sine/cosine transforms to be perfomed with ffts.
 c DBLSIN1D creates doubled array for scalar vector data to enable
 c          various sine/cosine transforms to be perfomed with ffts.
+c DBLCOS1A creates doubled array for 2 component vector data to enable
+c          various cosine/sine transforms to be perfomed with ffts.
+c DBLCOS1D creates doubled array for scalar vector data to enable
+c          various cosine/sine transforms to be perfomed with ffts.
 c HAFDBL1C extracts data from doubled array for 2 component vector data.
 c HAFDBL1B extracts data from doubled array for 3 component vector data.
 c HAFDBL1D extracts data from doubled array for scalar data.
@@ -54,6 +58,8 @@ c          transforms.
 c DMFIELDD1 copies scalar data from doubled fft format to sine format.
 c CMFIELDD1 copies 2 component vector data from doubled fft format to
 c           sine format.
+c AMFIELDD1 copies 2 component vector data from doubled fft format to
+c           cosine format.
 c EMFIELDD1 combines and smooths 2d electric field in sine or format to
 c           doubled fft format.
 c BMFIELDD1 smooths 2d magnetic field in sine or format to doubled fft
@@ -76,9 +82,28 @@ c GTVSMODES1 extracts selected fourier sine components from vector
 c            potential array.
 c PTVSMODES1 places selected fourier sine components into vector
 c            potential array.
+c LSCFGUARD1 initialize 3 component non-periodic field with scaled
+c            vector array, quadratic interpolation.
+c LSCFGUARD1L initialize 3 component non-periodic field with scaled
+c             vector array, linear interpolation.
+c DCUPERPDX13 calculate 1-2/2d transverse derivative of current density
+c             from momentum flux with dirichlet boundary conditions,
+c             using doubled ffts.
+c DCUPERPD13 calculate 1-2/2d transverse derivative of current density
+c            from momentum flux with dirichlet boundary conditions,
+c            using sine transforms.
+c ADCUPERPDX13 calculate 1-2/2d transverse derivative of current density
+c              from momentum flux and acceleration density with dirichlet
+c              boundary conditions, using doubled ffts.
+c ADCUPERPD13 calculate 1-2/2d transverse derivative of current density
+c             from momentum flux and acceleration density with dirichlet
+c             boundary conditions, using sine transforms.
+c EPOISDX13 solve vector poisson equation for 2-1/2d transverse electric
+c           field or force with dirichlet boundary conditions, using
+c           doubled ffts.
 c written by viktor k. decyk, ucla
 c copyright 1994, regents of the university of california
-c update: july 21, 2010
+c update: july 19, 2011
 c-----------------------------------------------------------------------
       subroutine LCGUARD1(byz,nx,nxe)
 c this subroutine replicates field so as to disable
@@ -145,6 +170,7 @@ c quadratic interpolation
       real cu, yj0, zj0
       integer nx, ngx, nxe
       dimension cu(2,nxe)
+c local data
       integer i, j, nxg, nx3
       if ((ngx.lt.0).or.(ngx.gt.1)) return
 c initialize extended field, with zero in the edges
@@ -174,6 +200,7 @@ c quadratic interpolation
       real q, qi0
       integer nx, ngx, nxe
       dimension q(nxe)
+c local data
       integer j, nxg, nx3
       if ((ngx.lt.0).or.(ngx.gt.1)) return
 c initialize extended field, with zero in the edges
@@ -245,6 +272,7 @@ c linear interpolation
       real cu, yj0, zj0
       integer nx, ngx, nxe
       dimension cu(2,nxe)
+c local data
       integer i, j, nxg, nx1
       if ((ngx.lt.0).or.(ngx.gt.1)) return
 c initialize extended field, with zero in the edges
@@ -272,6 +300,7 @@ c linear interpolation
       real q, qi0
       integer nx, ngx, nxe
       dimension q(nxe)
+c local data
       integer j, nxg, nx1
       if ((ngx.lt.0).or.(ngx.gt.1)) return
 c initialize extended field, with zero in the edges
@@ -336,6 +365,34 @@ c copy to double array
    10 continue
       q2(1) = 0.
       q2(nx+1) = 0.
+      return
+      end
+      subroutine DBLCOS1A(cu,cu2,nx,nxv,nx2v)
+c this subroutine creates an even vector array cu2 from an array cu, so
+c that a 1d cosine transform can be performed with a 1d real to complex
+c fft.
+c linear interpolation
+c nx = system length in x direction
+c nxv = second dimension of input array cu, must be >= nx
+c nx2v = second dimension of output array cu2, must be >= 2*nx
+      implicit none
+      real cu, cu2
+      integer nx, nxv, nx2v
+      dimension cu(2,nxv), cu2(2,nx2v)
+c local data
+      integer j, nxs
+c copy to double array
+      nxs = nx - 1
+      do 10 j = 1, nxs
+      cu2(1,j+1) = cu(1,j+1)
+      cu2(2,j+1) = cu(2,j+1)
+      cu2(1,nx+j+1) = cu(1,nx-j+1)
+      cu2(2,nx+j+1) = cu(2,nx-j+1)
+   10 continue
+      cu2(1,1) = cu(1,1)
+      cu2(2,1) = cu(2,1)
+      cu2(1,nx+1) = cu(1,nx+1)
+      cu2(2,nx+1) = cu(2,nx+1)
       return
       end
       subroutine DBLCOS1D(q,q2,nx,nxv,nx2v)
@@ -458,11 +515,11 @@ c local data
       integer j
       real dnx, dkx, at1, at2
       double precision wp
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       if (isign.ne.0) go to 20
 c prepare form factor array
       do 10 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       ffd(2*j) = exp(-.5*(dkx*ax)**2)
       ffd(2*j-1) = affp*ffd(2*j)/(dkx*dkx)
    10 continue
@@ -474,14 +531,14 @@ c calculate force/charge and sum field energy
       wp = 0.0d0
       do 30 j = 2, nx
       at1 = ffd(2*j-1)*ffd(2*j)
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       fx(2*j-1) = at2*q(2*j)
       fx(2*j) = 0.0
       wp = wp + at1*q(2*j)**2
    30 continue
       fx(1) = 0.0
       fx(2) = 0.0
-      we = float(nx)*wp
+      we = real(nx)*wp
       return
 c calculate potential and sum field energy
    40 if (isign.gt.1) go to 60
@@ -495,7 +552,7 @@ c calculate potential and sum field energy
    50 continue
       fx(1) = 0.0
       fx(2) = 0.0
-      we = float(nx)*wp
+      we = real(nx)*wp
       return
 c calculate smoothing
    60 do 70 j = 2, nx
@@ -550,11 +607,11 @@ c local data
       real dnx, dkx, at1, at2
       double precision wp
       nx1 = nx + 1
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       if (isign.ne.0) go to 20
 c prepare form factor array
       do 10 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       ffd(2*j) = exp(-.5*((dkx*ax)**2))
       ffd(2*j-1) = affp*ffd(2*j)/(dkx*dkx)
    10 continue
@@ -566,13 +623,13 @@ c calculate force/charge and sum field energy
       wp = 0.0d0
       do 30 j = 2, nx
       at1 = ffd(2*j-1)*ffd(2*j)
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       fx(j) = -at2*q(j)
       wp = wp + at1*q(j)**2
    30 continue
       fx(1) = 0.0
       fx(nx+1) = 0.0
-      we = float(nx)*wp
+      we = real(nx)*wp
       return
 c calculate potential and sum field energy
    40 if (isign.gt.1) go to 60
@@ -585,7 +642,7 @@ c calculate potential and sum field energy
    50 continue
       fx(1) = 0.0
       fx(nx+1) = 0.0
-      we = float(nx)*wp
+      we = real(nx)*wp
       return
 c calculate smoothing
    60 do 70 j = 2, nx
@@ -652,13 +709,13 @@ c local data
       real dnx, ci2, dkx, at1, at2
       complex zero
       double precision wp
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       ci2 = ci*ci
       zero = cmplx(0.0,0.0)
       if (isign.ne.0) go to 20
 c prepare form factor array
       do 10 j = 1, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at2 = exp(-.5*(dkx*ax)**2)
       ffd(j) = cmplx(affp*at2/(dkx*dkx),at2)
    10 continue
@@ -670,14 +727,14 @@ c calculate magnetic field and sum field energy
 c mode numbers 0 < kx < nx
       do 30 j = 2, nx
       at1 = ci2*real(ffd(j))*aimag(ffd(j))
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       byz(1,j) = cmplx(at2*aimag(cu(2,j)),0.0)
       byz(2,j) = cmplx(-at2*aimag(cu(1,j)),0.0)
       wp = wp + at1*(aimag(cu(1,j))**2 + aimag(cu(2,j))**2)
    30 continue
       byz(1,1) = zero
       byz(2,1) = zero
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
 c calculate vector potential and sum field energy
    40 if (isign.gt.1) go to 60
@@ -692,7 +749,7 @@ c mode numbers 0 < kx < nx
    50 continue
       byz(1,1) = zero
       byz(2,1) = zero
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
 c calculate smoothing
 c mode numbers 0 < kx < nx
@@ -705,7 +762,6 @@ c mode numbers 0 < kx < nx
       byz(2,1) = zero
       return
       end
-c-----------------------------------------------------------------------
       subroutine BPOISD13(cu,byz,isign,ffd,ax,affp,ci,wm,nx,nxe,nxv)
 c this subroutine solves 1-1/2d poisson's equation in fourier space for
 c magnetic field (or convolution of magnetic field over particle shape)
@@ -763,12 +819,12 @@ c local data
       integer j
       real dnx, ci2, dkx, at1, at2
       double precision wp
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       ci2 = ci*ci
       if (isign.ne.0) go to 20
 c prepare form factor array
       do 10 j = 1, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at2 = exp(-.5*(dkx*ax)**2)
       ffd(j) = cmplx(affp*at2/(dkx*dkx),at2)
    10 continue
@@ -780,7 +836,7 @@ c calculate magnetic field and sum field energy
 c mode numbers 0 < kx < nx
       do 30 j = 2, nx
       at1 = ci2*real(ffd(j))*aimag(ffd(j))
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       byz(1,j) = -at2*cu(2,j)
       byz(2,j) = at2*cu(1,j)
       wp = wp + at1*(cu(1,j)**2 + cu(2,j)**2)
@@ -789,7 +845,7 @@ c mode numbers 0 < kx < nx
       byz(2,1) = 0.
       byz(1,nx+1) = 0.
       byz(2,nx+1) = 0.
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
 c calculate vector potential and sum field energy
    40 if (isign.gt.1) go to 60
@@ -806,7 +862,7 @@ c mode numbers 0 < kx < nx
       byz(2,1) = 0.
       byz(1,nx+1) = 0.
       byz(2,nx+1) = 0.
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
 c calculate smoothing
 c mode numbers 0 < kx < nx
@@ -860,7 +916,7 @@ c local data
       real dnx, ci2, at1, at2
       complex zero
       double precision wp
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       ci2 = ci*ci
       zero = cmplx(0.0,0.0)
 c calculate magnetic field and sum field energy
@@ -868,7 +924,7 @@ c calculate magnetic field and sum field energy
 c mode numbers 0 < kx < nx
       do 10 j = 2, nx
       at1 = ci2*real(ffd(j))
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       at1 = at1*aimag(ffd(j))
       byz(1,j) = cmplx(at2*aimag(cu(2,j)),0.0)
       byz(2,j) = cmplx(-at2*aimag(cu(1,j)),0.0)
@@ -876,7 +932,7 @@ c mode numbers 0 < kx < nx
    10 continue
       byz(1,1) = zero
       byz(2,1) = zero
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
       end
       subroutine IBPOISD13(cu,byz,ffd,ci,wm,nx,nxe,nxv)
@@ -919,14 +975,14 @@ c local data
       integer j
       real dnx, ci2, at1, at2
       double precision wp
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       ci2 = ci*ci
 c calculate magnetic field and sum field energy
       wp = 0.0d0
 c mode numbers 0 < kx < nx
       do 10 j = 2, nx
       at1 = ci2*real(ffd(j))
-      at2 = dnx*float(j - 1)*at1
+      at2 = dnx*real(j - 1)*at1
       at1 = at1*aimag(ffd(j))
       byz(1,j) = -at2*cu(2,j)
       byz(2,j) = at2*cu(1,j)
@@ -936,7 +992,7 @@ c mode numbers 0 < kx < nx
       byz(2,1) = 0.
       byz(1,nx+1) = 0.
       byz(2,nx+1) = 0.
-      wm = float(nx)*wp
+      wm = real(nx)*wp
       return
       end
       subroutine MAXWELDX1(eyz,byz,cu,ffd,ci,dt,wf,wm,nx,nxv,nxd)
@@ -985,7 +1041,7 @@ c local data
       complex zero
       double precision wp, ws
       if (ci.le.0.) return
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       dth = .5*dt
       c2 = 1./(ci*ci)
       cdt = c2*dt
@@ -999,7 +1055,7 @@ c update electromagnetic field and sum field energies
 c calculate the electromagnetic fields
 c mode numbers 0 < kx < nx
       do 10 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       afdt = adt*aimag(ffd(j))
       at8 = aimag(eyz(1,j))
       at9 = aimag(eyz(2,j))
@@ -1023,8 +1079,8 @@ c update magnetic field half time step and store electric field
       byz(2,1) = zero
       eyz(1,1) = zero
       eyz(2,1) = zero
-      wf = float(nx)*ws
-      wm = float(nx)*c2*wp
+      wf = real(nx)*ws
+      wm = real(nx)*c2*wp
       return
       end
       subroutine MAXWELD1(eyz,byz,cu,ffd,ci,dt,wf,wm,nx,nxe,nxv)
@@ -1072,7 +1128,7 @@ c local data
       real at5, at6, at8, at9
       double precision wp, ws
       if (ci.le.0.) return
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       dth = .5*dt
       c2 = 1./(ci*ci)
       cdt = c2*dt
@@ -1085,7 +1141,7 @@ c update electromagnetic field and sum field energies
 c calculate the electromagnetic fields
 c mode numbers 0 < kx < nx
       do 10 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       afdt = adt*aimag(ffd(j))
       at8 = eyz(1,j)
       at9 = eyz(2,j)
@@ -1113,8 +1169,8 @@ c update magnetic field half time step and store electric field
       eyz(2,1) = 0.0
       eyz(1,nx+1) = 0.0
       eyz(2,nx+1) = 0.0
-      wf = float(nx)*ws
-      wm = float(nx)*c2*wp
+      wf = real(nx)*ws
+      wm = real(nx)*c2*wp
       return
       end
       subroutine DMFIELDD1(q2,q,nx,nxv,nxe)
@@ -1134,16 +1190,33 @@ c local data
       end
       subroutine CMFIELDD1(cu2,cu,nx,nxv,nxe)
 c this subroutine copies the current into a smaller array
-c which would have been created by fast sine/cosine transforms in x
+c which would have been created by fast sine transforms in x
       implicit none
       integer nx, nxv, nxe
       complex cu2
       real cu
       dimension cu2(2,nxv), cu(2,nxe)
+c local data
       integer j
       do 10 j = 1, nx+1
       cu(1,j) = -aimag(cu2(1,j))
       cu(2,j) = -aimag(cu2(2,j))
+   10 continue
+      return
+      end
+      subroutine AMFIELDD1(amu2,amu,nx,nxv,nxe)
+c this subroutine copies the current into a smaller array
+c which would have been created by fast cosine transforms in x
+      implicit none
+      integer nx, nxv, nxe
+      complex amu2
+      real amu
+      dimension amu2(2,nxv), amu(2,nxe)
+c local data
+      integer j
+      do 10 j = 1, nx+1
+      amu(1,j) = real(amu2(1,j))
+      amu(2,j) = real(amu2(2,j))
    10 continue
       return
       end
@@ -1212,12 +1285,12 @@ c local data
       integer j
       real dnx, dkx, at1, at4, at5, at6
       complex zero
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       zero = cmplx(0.0,0.0)
 c calculate vector potential
 c mode numbers 0 < kx < nx
       do 10 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at1 = 1.0/dkx
       at4 = real(byz(2,j))
       at5 = real(byz(1,j))
@@ -1253,11 +1326,11 @@ c nxe = first dimension of field arrays, must be >= nx+1
 c local data
       integer j
       real dnx, dkx, at1, at4, at5
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
 c calculate vector potential
 c mode numbers 0 < kx < nx
       do 10 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at1 = 1.0/dkx
       at4 = byz(2,j)
       at5 = byz(1,j)
@@ -1308,13 +1381,13 @@ c local data
       real dnx, afc2, dkx, at1, at2, at4, at5
       complex zero
       if (ci.le.0.0) return
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       afc2 = real(ffd(1))*ci*ci
       zero = cmplx(0.0,0.0)
 c calculate the radiative vector potential
 c mode numbers 0 < kx < nx/2
       do 20 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at1 = 1.0/(dkx*dkx)
       at2 = afc2*aimag(ffd(j))
 c update radiative vector potential
@@ -1365,12 +1438,12 @@ c local data
       integer j
       real dnx, afc2, dkx, at1, at2, at4, at5
       if (ci.le.0.0) return
-      dnx = 6.28318530717959/float(nx + nx)
+      dnx = 6.28318530717959/real(nx + nx)
       afc2 = real(ffd(1))*ci*ci
 c calculate the radiative vector potential
 c mode numbers 0 < kx < nx/2
       do 20 j = 2, nx
-      dkx = dnx*float(j - 1)
+      dkx = dnx*real(j - 1)
       at1 = 1.0/(dkx*dkx)
       at2 = afc2*aimag(ffd(j))
 c update radiative vector potential
@@ -1493,6 +1566,7 @@ c modesxd = second dimension of output array vpott, modesxd >= modesx
       integer modesxd
       real vpot, vpott
       dimension vpot(ndim,nxv), vpott(nt,ndim,modesxd)
+c local data
       integer jmax, i, j
       if (it.gt.nt) return
       if ((modesx.le.0).or.(modesx.gt.(nx+1))) return
@@ -1508,5 +1582,390 @@ c mode numbers 0 < kx < nx
       vpot(i,j) = 0.0
    30 continue
    40 continue
+      return
+      end
+      subroutine LSCFGUARD1(cus,cu,q2m0,nx,nxe)
+c initialize extended periodic field with scaled field
+c quadratic interpolation
+      implicit none
+      real cus, cu, q2m0
+      integer nx, nxe
+      dimension cus(2,nxe), cu(2,nxe)
+      integer i, j, nx1
+      nx1 = nx + 1
+c initialize extended field, with zero in the edges
+      do 20 j = 1, nx1
+      do 10 i = 1, 2
+      cus(i,j+1) = -q2m0*cu(i,j+1)
+   10 continue
+   20 continue
+      do 30 i = 1, 2
+      cus(i,1) = 0.
+      cus(i,nx+3) = 0.
+   30 continue
+      return
+      end
+      subroutine LSCFGUARD1L(cus,cu,q2m0,nx,nxe)
+c initialize extended field with scaled field
+c linear interpolation
+      implicit none
+      real cus, cu, q2m0
+      integer nx, nxe
+      dimension cus(2,nxe), cu(2,nxe)
+c local data
+      integer i, j, nx1
+      nx1 = nx + 1
+c initialize extended field
+      do 20 j = 1, nx1
+      do 10 i = 1, 2
+      cus(i,j) = -q2m0*cu(i,j)
+   10 continue
+   20 continue
+      return
+      end
+      subroutine DCUPERPDX13(dcu,amu,nx,nxv)
+c this subroutine calculates transverse part of the derivative of
+c the current density from the momentum flux
+c in 1-1/2d with dirichlet boundary conditions (zero potential)
+c the transverse part of the derivative of the current is calculated
+c using the equations:
+c dcu(1,kx) = -sqrt(-1)*(kx*vx*vy)
+c dcu(2,kx) = -sqrt(-1)*(kx*vx*vz)
+c where kx = pi*j/nx, and j = fourier mode numbers,
+c except for dcu(i,kx=pi) = dcu(i,kx=0) = 0.
+c amu(1,j) = xy component of complex momentum flux
+c amu(2,j) = xz component of complex momentum flux
+c all for fourier mode (j-1)
+c nx = system length in x direction
+c nxv = first dimension of field arrays, must be >= nx
+      implicit none
+      integer nx, nxv
+      complex dcu, amu
+      dimension dcu(2,nxv), amu(2,nxv)
+c local data
+      integer j
+      real dnx, dkx
+      complex zero
+      dnx = 6.28318530717959/real(nx + nx)
+      zero = cmplx(0.0,0.0)
+c mode numbers 0 < kx < nx
+      do 10 j = 2, nx
+      dkx = dnx*real(j - 1)
+      dcu(1,j) = cmplx(0.0,-dkx*real(amu(1,j)))
+      dcu(2,j) = cmplx(0.0,-dkx*real(amu(2,j)))
+   10 continue
+      dcu(1,1) = zero
+      dcu(2,1) = zero
+      return
+      end
+      subroutine DCUPERPD13(dcu,amu,nx,nxe)
+c this subroutine calculates transverse part of the derivative of
+c the current density from the momentum flux
+c in 1-1/2d with dirichlet boundary conditions (zero potential)
+c fourier coefficients are constructed to perform the appropriate
+c sin or cos transforms
+c the transverse part of the derivative of the current is calculated
+c using the equations:
+c dcu(1,kx) = kx*vx*vy
+c dcu(2,kx) = kx*vx*vz
+c where kx = pi*j/nx, and j = fourier mode numbers,
+c except for dcu(i,kx=pi) = dcu(i,kx=0) = 0.
+c amu(1,j) = xy component of complex momentum flux
+c amu(2,j) = xz component of complex momentum flux
+c all for fourier mode (j-1)
+c nx = system length in x direction
+c nxe = first dimension of field arrays, must be >= nx
+      implicit none
+      integer nx, nxe
+      real dcu, amu
+      dimension dcu(2,nxe), amu(2,nxe)
+c local data
+      integer j
+      real dnx, dkx
+      dnx = 6.28318530717959/real(nx + nx)
+c mode numbers 0 < kx < nx
+      do 10 j = 2, nx
+      dkx = dnx*real(j - 1)
+      dcu(1,j) = dkx*amu(1,j)
+      dcu(2,j) = dkx*amu(2,j)
+   10 continue
+      dcu(1,1) = 0.0
+      dcu(2,1) = 0.0
+      return
+      end
+      subroutine ADCUPERPDX13(dcu,amu,nx,nxv)
+c this subroutine calculates transverse part of the derivative of
+c the current density from the momentum flux and acceleration density
+c in 1-1/2d with dirichlet boundary conditions (zero potential)
+c the transverse part of the derivative of the current is calculated
+c using the equations:
+c dcu(1,kx) = dcu(1,kx)-sqrt(-1)*(kx*vx*vy)
+c dcu(2,kx) = dcu(2,kx)-sqrt(-1)*(kx*vx*vz)
+c where kx = pi*j/nx, and j = fourier mode numbers,
+c on input:
+c dcu(i,j,k) = complex acceleration density for fourier mode (j-1)
+c on output:
+c dcu(i,j,k) = transverse part of complex derivative of current for
+c fourier mode (j-1,k-1)
+c amu(1,j,k) = xy component of complex momentum flux
+c amu(2,j,k) = xz component of complex momentum flux
+c all for fourier mode (j-1)
+c nx = system length in x direction
+c nxv = first dimension of field arrays, must be >= nx
+      implicit none
+      integer nx, nxv
+      complex dcu, amu
+      dimension dcu(2,nxv), amu(2,nxv)
+c local data
+      integer j
+      real dnx, dkx
+      complex zero
+      dnx = 6.28318530717959/real(nx + nx)
+      zero = cmplx(0.0,0.0)
+c mode numbers 0 < kx < nx
+      do 10 j = 2, nx
+      dkx = dnx*real(j - 1)
+      dcu(1,j) = cmplx(0.0,aimag(dcu(1,j))-dkx*real(amu(1,j)))
+      dcu(2,j) = cmplx(0.0,aimag(dcu(2,j))-dkx*real(amu(2,j)))
+   10 continue
+      dcu(1,1) = zero
+      dcu(2,1) = zero
+      return
+      end
+      subroutine ADCUPERPD13(dcu,amu,nx,nxe)
+c this subroutine calculates transverse part of the derivative of
+c the current density from the momentum flux and acceleration density
+c in 1-1/2d with dirichlet boundary conditions (zero potential)
+c fourier coefficients are constructed to perform the appropriate
+c sin or cos transforms
+c the transverse part of the derivative of the current is calculated
+c using the equations:
+c dcu(1,kx) = dcu(1,kx) + kx*vx*vy
+c dcu(2,kx) = dcu(2,kx) + kx*vx*vz
+c where kx = pi*j/nx, and j = fourier mode numbers,
+c on input:
+c dcu(i,j,k) = complex acceleration density for fourier mode (j-1)
+c on output:
+c dcu(i,j,k) = transverse part of complex derivative of current for
+c fourier mode (j-1,k-1)
+c amu(1,j,k) = xy component of complex momentum flux
+c amu(2,j,k) = xz component of complex momentum flux
+c all for fourier mode (j-1)
+c nx = system length in x direction
+c nxe = first dimension of field arrays, must be >= nx
+      implicit none
+      integer nx, nxe
+      real dcu, amu
+      dimension dcu(2,nxe), amu(2,nxe)
+c local data
+      integer j
+      real dnx, dkx
+      dnx = 6.28318530717959/real(nx + nx)
+c mode numbers 0 < kx < nx
+      do 10 j = 2, nx
+      dkx = dnx*real(j - 1)
+      dcu(1,j) = dcu(1,j) + dkx*amu(1,j)
+      dcu(2,j) = dcu(2,j) + dkx*amu(2,j)
+   10 continue
+      dcu(1,1) = 0.0
+      dcu(2,1) = 0.0
+      return
+      end
+      subroutine EPOISDX13(dcu,eyz,isign,fff,ax,affp,wp0,ci,wf,nx,nxv,nx
+     1d)
+c this subroutine solves 1-1/2d poisson's equation in fourier space for
+c transverse electric field (or convolution of transverse electric field
+c over particle shape), with dirichlet boundary conditions
+c (zero potential).
+c fourier coefficients are constructed so that a real to complex fft
+c will perform the appropriate sin-cos, or cos-sin transform
+c using algorithm described in J. Busnardo-Neto, P. L. Pritchett,
+c A. T. Lin, and J. M. Dawson, J. Computational Phys. 23, 300 (1977).
+c for isign = 0, input: isign,ax,affp,wp0,nx,nxv,nxd, output: fff
+c for isign =/ 0, input: dcu,fff,isign,ci,nx,nxv,nxd, output: eyz, wf
+c approximate flop count is: 10*nxc, where nxc = nx - 1
+c if isign = 0, form factor array is prepared
+c if isign = -1, smoothed transverse electric field is calculated
+c using the equation:
+c ey(k) = -ci*ci*g(k)*dcuy(k)*s(k)
+c ez(k) = -ci*ci*g(k)*dcuz(k)*s(k)
+c where kx = pi*j/nx, and j = fourier mode numbers,
+c g(k) = (affp/k**2)*s(k), and s(k) = exp(-((k*ax)**2)
+c if isign = 1, unsmoothed transverse electric field is calculated
+c using the equation:
+c ey(k) = -ci*ci*g(k)*dcuy(k)
+c ez(k) = -ci*ci*g(k)*dcuz(k)
+c dcu(i,j) = transverse part of complex derivative of current for
+c fourier mode (j-1)
+c exy(1,j = y component of complex transverse electric field
+c exy(2,j) = z component of complex transverse electric field
+c all for fourier mode (j-1)
+c aimag(fff(j)) = finite-size particle shape factor s
+c for fourier mode (j-1)
+c real(fff(j)) = potential green's function g
+c for fourier mode (j-1)
+c ax = half-width of particle in x direction
+c affp = normalization constant = nxy/np, where np=number of particles
+c wp0 = normalized total plasma frequency squared
+c ci = reciprical of velocity of light
+c transverse electric field energy is also calculated, using
+c wf = nx*sum((affp/((k**2)*ci*ci)**2)
+c    |dcu(k)*s(k)|**2)
+c this expression is valid only if the derivative of current is
+c divergence-free
+c nx = system length in x/y direction
+c nxv = first dimension of field arrays, must be >= nx
+c nxd = dimension of form factor array, must be >= nx
+      implicit none
+      integer isign, nx, nxv, nxd
+      real ax, affp, wp0, ci, wf
+      complex dcu, eyz, fff
+      dimension dcu(2,nxv), eyz(2,nxv), fff(nxd)
+c local data
+      integer j
+      real dnx, ci2, wpc, dkx, at1, at2
+      complex zero
+      double precision wp
+      dnx = 6.28318530717959/real(nx + nx)
+      zero = cmplx(0.0,0.0)
+      ci2 = ci*ci
+      if (isign.ne.0) go to 20
+      wpc = wp0*ci2
+c prepare form factor array
+      do 10 j = 2, nx
+      dkx = dnx*real(j - 1)
+      at2 = exp(-.5*(dkx*ax)**2)
+      fff(j) = cmplx(affp*at2/(dkx*dkx + wpc*at2*at2),at2)
+   10 continue
+      fff(1) = cmplx(affp,1.0)
+      return
+c calculate smoothed transverse electric field and sum field energy
+   20 if (isign.gt.0) go to 40
+      wp = 0.0d0
+c mode numbers 0 < kx < nx
+      do 30 j = 2, nx
+      at2 = -ci2*real(fff(j))
+      at1 = at2*aimag(fff(j))
+      at2 = at2*at2
+      eyz(1,j) = cmplx(0.0,at1*aimag(dcu(1,j)))
+      eyz(2,j) = cmplx(0.0,at1*aimag(dcu(2,j)))
+      wp = wp + at2*(aimag(dcu(1,j))**2 + aimag(dcu(2,j))**2)
+   30 continue
+      eyz(1,1) = zero
+      eyz(2,1) = zero
+      wf = real(nx)*wp/real(fff(1))
+      return
+c calculate unsmoothed transverse electric field and sum field energy
+   40 wp = 0.0d0
+c mode numbers 0 < kx < nx
+      do 50 j = 2, nx
+      at2 = -ci2*real(fff(j))
+      at1 = at2*at2
+      eyz(1,j) = cmplx(0.0,at2*aimag(dcu(1,j)))
+      eyz(2,j) = cmplx(0.0,at2*aimag(dcu(2,j)))
+      wp = wp + at1*(aimag(dcu(1,j))**2 + aimag(dcu(2,j))**2)
+   50 continue
+      eyz(1,1) = zero
+      eyz(2,1) = zero
+      wf = real(nx)*wp/real(fff(1))
+      return
+      end
+      subroutine EPOISD13(dcu,eyz,isign,fff,ax,affp,wp0,ci,wf,nx,nxe,nxv
+     1)
+c this subroutine solves 1-1/2d poisson's equation in fourier space for
+c transverse electric field (or convolution of transverse electric field
+c over particle shape), with dirichlet boundary conditions
+c (zero potential).
+c fourier coefficients are constructed to perform the appropriate
+c sin or cos transforms
+c using algorithm described in J. Busnardo-Neto, P. L. Pritchett,
+c A. T. Lin, and J. M. Dawson, J. Computational Phys. 23, 300 (1977).
+c for isign = 0, input: isign,ax,affp,wp0,nx,nxv,nxd, output: fff
+c for isign =/ 0, input: dcu,fff,isign,ci,nx,nxv,nxd, output: eyz, wf
+c approximate flop count is: 10*nxc, where nxc = nx - 1
+c if isign = 0, form factor array is prepared
+c if isign = -1, smoothed transverse electric field is calculated
+c using the equation:
+c ey(k) = -ci*ci*g(k)*dcuy(k)*s(k)
+c ez(k) = -ci*ci*g(k)*dcuz(k)*s(k)
+c where kx = pi*j/nx, and j = fourier mode numbers,
+c g(k) = (affp/k**2)*s(k), and s(k) = exp(-((k*ax)**2)
+c if isign = 1, unsmoothed transverse electric field is calculated
+c using the equation:
+c ey(k) = -ci*ci*g(k)*dcuy(k)
+c ez(k) = -ci*ci*g(k)*dcuz(k)
+c dcu(i,j) = transverse part of complex derivative of current for
+c fourier mode (j-1)
+c exy(1,j = y component of complex transverse electric field
+c exy(2,j) = z component of complex transverse electric field
+c all for fourier mode (j-1)
+c aimag(fff(j)) = finite-size particle shape factor s
+c for fourier mode (j-1)
+c real(fff(j)) = potential green's function g
+c for fourier mode (j-1)
+c ax = half-width of particle in x direction
+c affp = normalization constant = nxy/np, where np=number of particles
+c wp0 = normalized total plasma frequency squared
+c ci = reciprical of velocity of light
+c transverse electric field energy is also calculated, using
+c wf = nx*sum((affp/((k**2)*ci*ci)**2)
+c    |dcu(k)*s(k)|**2)
+c this expression is valid only if the derivative of current is
+c divergence-free
+c nx = system length in x/y direction
+c nxe = first dimension of field arrays, must be >= nx+1
+c nxv = dimension of form factor array, must be >= nx
+      implicit none
+      integer isign, nx, nxe, nxv
+      real ax, affp, wp0, ci, wf
+      real dcu, eyz
+      complex fff
+      dimension dcu(2,nxe), eyz(2,nxe)
+      dimension fff(nxv)
+c local data
+      integer j
+      real dnx, ci2, wpc, dkx, at1, at2
+      double precision wp
+      dnx = 6.28318530717959/real(nx + nx)
+      ci2 = ci*ci
+      if (isign.ne.0) go to 20
+      wpc = wp0*ci2
+c prepare form factor array
+      do 10 j = 2, nx
+      dkx = dnx*real(j - 1)
+      at2 = exp(-.5*(dkx*ax)**2)
+      fff(j) = cmplx(affp*at2/(dkx*dkx + wpc*at2*at2),at2)
+   10 continue
+      fff(1) = cmplx(affp,1.0)
+      return
+c calculate smoothed transverse electric field and sum field energy
+   20 if (isign.gt.0) go to 40
+      wp = 0.0d0
+c mode numbers 0 < kx < nx
+      do 30 j = 2, nx
+      at2 = -ci2*real(fff(j))
+      at1 = at2*aimag(fff(j))
+      at2 = at2*at2
+      eyz(1,j) = at1*dcu(1,j)
+      eyz(2,j) = at1*dcu(2,j)
+      wp = wp + at2*(dcu(1,j)**2 + dcu(2,j)**2)
+   30 continue
+      eyz(1,1) = 0.0
+      eyz(2,1) = 0.0
+      wf = real(nx)*wp/real(fff(1))
+      return
+c calculate unsmoothed transverse electric field and sum field energy
+   40 wp = 0.0d0
+c mode numbers 0 < kx < nx
+      do 50 j = 2, nx
+      at2 = -ci2*real(fff(j))
+      at1 = at2*at2
+      eyz(1,j) = at2*dcu(1,j)
+      eyz(2,j) = at2*dcu(2,j)
+      wp = wp + at1*(dcu(1,j)**2 + dcu(2,j)**2)
+   50 continue
+      eyz(1,1) = 0.0
+      eyz(2,1) = 0.0
+      wf = real(nx)*wp/real(fff(1))
       return
       end

@@ -20,7 +20,8 @@
           rex(nreg),rey(nreg),rez(nreg),rix(nreg),riy(nreg),riz(nreg),&
           siep(nreg), rhr(nreg),qom(nreg),&
           bxr(nreg),byr(nreg),bzr(nreg),&
-          xvi(8,nreg),yvi(8,nreg),zvi(8,nreg)
+          xvi(8,nreg),yvi(8,nreg),zvi(8,nreg),   &
+          perturbx,perturby,perturbz
 !
 !
       real(double) ::&
@@ -37,6 +38,7 @@
           mc(itdim),sie1p(itdim),&
           ax(itdim),ay(itdim),az(itdim),&
           mv(itdim),umom(itdim),vmom(itdim),wmom(itdim),&
+          mv_s(itdim,nspecies),       &
           work(itdim),pdv(itdim),csq(itdim),&
           vasq(itdim),&
           divu(itdim),gradx(itdim),grady(itdim),gradz(itdim),&

@@ -1,7 +1,7 @@
 c general 2d gks graphics library
 c written by viktor k. decyk, ucla
 c copyright 1996, regents of the university of california
-c update: june 27, 2009
+c update: july 12, 2011
       subroutine CARPET(f,label,isc,ist,nx,ny,nxv,chr,ntc,irc)
 c this subroutine displays an array f as a color raster image.
 c a 256 color palette must have been defined prior to this call. 
@@ -126,19 +126,19 @@ c find scales for plot
       endif
 c parameters for plots
       xmin = 0.
-      xmax = float(nx - 1)
+      xmax = real(nx - 1)
       ymin = 0.
-      ymax = float(ny - 1)
+      ymax = real(ny - 1)
 c find location for plot
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
       iy = iplot/npl
       ix = iplot - iy*npl
       sx = apl*rx
       sy = apl*ry
-      orx = sx*float(ix)
-      ory = sy*float(npl1 - iy)
+      orx = sx*real(ix)
+      ory = sy*real(npl1 - iy)
       smn = orx + sx*smin
       smx = orx + sx*smax
       tmn = ory + sy*tmin
@@ -149,8 +149,8 @@ c fill area
       ymn = tmn
 c preserve aspect ratio
       if (istyle.eq.1) then
-         if (nx.gt.ny) ymn = tmx - (tmx - tmn)*float(ny)/float(nx)
-         if (ny.gt.nx) xmn = smx - (smx - smn)*float(nx)/float(ny)
+         if (nx.gt.ny) ymn = tmx - (tmx - tmn)*real(ny)/real(nx)
+         if (ny.gt.nx) xmn = smx - (smx - smn)*real(nx)/real(ny)
       endif
 c set size of raster image
       lxs = lxm
@@ -162,12 +162,12 @@ c clear workstation, always
          call gclrwk(idwk,1)
       endif
 c create sample palette
-      ac = float(ntc - 1)/float(lys - 1)
+      ac = real(ntc - 1)/real(lys - 1)
 c rescale factor ncv
       ncv = 256/ntc
       do 40 k = 1, lys
       joff = lxp*(k - 1)
-      ic = ac*float(lys - k) + 0.999999
+      ic = ac*real(lys - k) + 0.999999
 c rescale index
       ic = ic*ncv
 c lookup table required
@@ -335,15 +335,15 @@ c find scales for plot
          fmax = 0.  
       endif
 c find location for plot
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
       iy = iplot/npl
       ix = iplot - iy*npl
       sx = apl*rx
       sy = apl*ry
-      orx = sx*float(ix)
-      ory = sy*float(npl1 - iy)
+      orx = sx*real(ix)
+      ory = sy*real(npl1 - iy)
       smn = orx + sx*smin
       smx = orx + sx*smax
       tmn = ory + sy*tmin
@@ -354,8 +354,8 @@ c fill area
       ymn = tmn
 c preserve aspect ratio
       if (istyle.eq.1) then
-         if (nx.gt.ny) ymn = tmx - (tmx - tmn)*float(ny)/float(nx)
-         if (ny.gt.nx) xmn = smx - (smx - smn)*float(nx)/float(ny)
+         if (nx.gt.ny) ymn = tmx - (tmx - tmn)*real(ny)/real(nx)
+         if (ny.gt.nx) xmn = smx - (smx - smn)*real(nx)/real(ny)
       endif
 c set size of raster image
       lxs = lxm
@@ -367,12 +367,12 @@ c clear workstation, always
          call gclrwk(idwk,1)
       endif
 c create sample palette
-      ac = float(ntc - 1)/float(lys - 1)
+      ac = real(ntc - 1)/real(lys - 1)
 c rescale factor ncv
       ncv = 256/ntc
       do 40 k = 1, lys
       joff = lxp*(k - 1)
-      ic = ac*float(lys - k) + 0.999999
+      ic = ac*real(lys - k) + 0.999999
 c rescale index
       ic = ic*ncv
 c lookup table required
@@ -496,7 +496,7 @@ c return if palette id number is out of range of
 c return if palette size is too small
       if (npald.lt.768) return
 c normalize color amplitudes
-      apmx = float(ipmx - 1)
+      apmx = real(ipmx - 1)
 c extract index and color segments for palette selected
       do 10 i = 1, ncgr
       ioff = (idpal - 1)*ncgr
@@ -517,11 +517,11 @@ c first point
 c outer loop over sextants
       do 40 i = 2, ncgr
       it = iss(i) - iss(i-1)
-      at = 1./float(it)
+      at = 1./real(it)
 c inner loop does linear interpolation between segments
       do 30 j = 1, it
       ic = 3*(j + iss(i-1)) + 1
-      att = float(j)*at
+      att = real(j)*at
       pal(ic) = char(int((reds(i) - reds(i-1))*att + reds(i-1)))
       pal(ic+1) = char(int((greens(i) - greens(i-1))*att + greens(i-1)))
       pal(ic+2) = char(int((blues(i) - blues(i-1))*att + blues(i-1)))
@@ -553,30 +553,30 @@ c ntc = number of valid colors, should be power of 2, <= 256
       lx1 = lx - 1
       ly1 = ly - 1
 c interpolation scales
-      dxs = float(nx - 1)/float(lx1)
-      dys = float(ny - 1)/float(ly1)
+      dxs = real(nx - 1)/real(lx1)
+      dys = real(ny - 1)/real(ly1)
 c color scale
-      af = float(ntc - 1)/(fmax - fmin)
+      af = real(ntc - 1)/(fmax - fmin)
 c rescale factor ncv
       ncv = 256/ntc
 c loop over y pixels
       do 20 k = 1, ly1
       k1 = ly + 1 - k
 c yt = location in f array corresponding to pixel k
-      yt = dys*float(k - 1)
+      yt = dys*real(k - 1)
       m = yt
 c dy = linear interpolation weight in y
-      dy = yt - float(m)
+      dy = yt - real(m)
 c m = address in f array below or at pixel k
       m = m + 1
       dyt = 1. - dy
 c loop over x pixels
       do 10 j = 1, lx1
 c xt = location in f array corresponding to pixel j
-      xt = dxs*float(j - 1)
+      xt = dxs*real(j - 1)
       n = xt
 c dx = linear interpolation weight in x
-      dx = xt - float(n)
+      dx = xt - real(n)
 c n = address in f array below or at pixel j
       n = n + 1
       dxt = 1. - dx
@@ -610,10 +610,10 @@ c rescale and store index
 c loop over x pixels for top row
       do 30 j = 1, lx1
 c xt = location in f array corresponding to pixel j
-      xt = dxs*float(j - 1)
+      xt = dxs*real(j - 1)
       n = xt
 c dx = linear interpolation weight in x
-      dx = xt - float(n)
+      dx = xt - real(n)
 c n = address in f array below or at pixel j
       n = n + 1
       dxt = 1. - dx
@@ -663,30 +663,30 @@ c ntc = number of valid colors, should be power of 2, <= 256
       lx1 = lx - 1
       ly1 = ly - 1
 c interpolation scales
-      dxs = float(nx - 1)/float(lx1)
-      dys = float(ny - 1)/float(ly1)
+      dxs = real(nx - 1)/real(lx1)
+      dys = real(ny - 1)/real(ly1)
 c color scale
-      af = float(ntc - 1)/(fmax - fmin)
+      af = real(ntc - 1)/(fmax - fmin)
 c rescale factor ncv
       ncv = 256/ntc
 c loop over y pixels
       do 20 k = 1, ly1
       k1 = ly + 1 - k
 c yt = location in f array corresponding to pixel k
-      yt = dys*float(k - 1)
+      yt = dys*real(k - 1)
       m = yt
 c dy = linear interpolation weight in y
-      dy = yt - float(m)
+      dy = yt - real(m)
 c m = address in f array below or at pixel k
       m = m + 1
       dyt = 1. - dy
 c loop over x pixels
       do 10 j = 1, lx1
 c xt = location in f array corresponding to pixel j
-      xt = dxs*float(j - 1)
+      xt = dxs*real(j - 1)
       n = xt
 c dx = linear interpolation weight in x
-      dx = xt - float(n)
+      dx = xt - real(n)
 c n = address in f array below or at pixel j
       n = n + 1
       dxt = 1. - dx
@@ -720,10 +720,10 @@ c rescale and store index
 c loop over x pixels for top row
       do 30 j = 1, lx1
 c xt = location in f array corresponding to pixel j
-      xt = dxs*float(j - 1)
+      xt = dxs*real(j - 1)
       n = xt
 c dx = linear interpolation weight in x
-      dx = xt - float(n)
+      dx = xt - real(n)
 c n = address in f array below or at pixel j
       n = n + 1
       dxt = 1. - dx
@@ -875,19 +875,19 @@ c find scales for plot
       endif
 c parameters for plots
       xmin = 0.
-      xmax = float(nx - 1)
+      xmax = real(nx - 1)
       ymin = 0.
-      ymax = float(ny - 1)
+      ymax = real(ny - 1)
 c find location for plot
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
       iy = iplot/npl
       ix = iplot - iy*npl
       sx = apl*rx
       sy = apl*ry
-      orx = sx*float(ix)
-      ory = sy*float(npl1 - iy)
+      orx = sx*real(ix)
+      ory = sy*real(npl1 - iy)
       smn = orx + sx*smin
       smx = orx + sx*smax
       tmn = ory + sy*tmin
@@ -898,8 +898,8 @@ c fill area
       ymn = tmn
 c preserve aspect ratio
       if (istyle.eq.1) then
-         if (nx.gt.ny) ymn = tmx - (tmx - tmn)*float(ny)/float(nx)
-         if (ny.gt.nx) xmn = smx - (smx - smn)*float(nx)/float(ny)
+         if (nx.gt.ny) ymn = tmx - (tmx - tmn)*real(ny)/real(nx)
+         if (ny.gt.nx) xmn = smx - (smx - smn)*real(nx)/real(ny)
       endif
 c calculate color indices
       ntc = ncols + 1
@@ -969,19 +969,19 @@ c edges of sample contour
       ay = tmin + 4.*chh
       by = tmax - 4.*chh 
 c increment between contours
-      dy = (by - ay)/float(nc + 1)
+      dy = (by - ay)/real(nc + 1)
 c increment between colors
       if (ntc.gt.2) then
-         ac = float(ntc - 1)/float(nc)
+         ac = real(ntc - 1)/real(nc)
 c increment between line styles
       else
-         ac = 4./float(nc)
+         ac = 4./real(nc)
       endif
       do 10 l = 1, nc
 c calculate location
-      y(1) = ay + dy*float(l)
+      y(1) = ay + dy*real(l)
       y(2) = y(1)
-      il = ac*(float(l) - .5)
+      il = ac*(real(l) - .5)
 c set color
       if (ntc.gt.2) then
          icol = icolor(il+2)
@@ -1026,23 +1026,23 @@ c lns = line style table, 1 = solid, 2 = dash, 3 = dot, 4 = dash-dot
       nx1 = nx - 1
       ny1 = ny - 1
 c increment between contours
-      dc = (fmax - fmin)/float(nc)
+      dc = (fmax - fmin)/real(nc)
 c increment between colors
       if (ntc.gt.2) then
-         ac = float(ntc - 1)/float(nc)
+         ac = real(ntc - 1)/real(nc)
 c increment between line styles
       else
-         ac = 4./float(nc)
+         ac = 4./real(nc)
       endif
 c first contour
       ci = fmin + .5*dc
 c scale factors for plot
-      dsx = (smax - smin)/float(nx1)
-      dsy = (tmax - tmin)/float(ny1)
+      dsx = (smax - smin)/real(nx1)
+      dsy = (tmax - tmin)/real(ny1)
 c loop over contour levels
       do 120 l = 1, nc
-      clev = ci + dc*float(l - 1)
-      il = ac*(float(l) - .5)
+      clev = ci + dc*real(l - 1)
+      il = ac*(real(l) - .5)
 c set color
       if (ntc.gt.2) then
          icol = icolor(il+2)
@@ -1253,8 +1253,8 @@ c reset counter
          n = 2
       endif
 c store next coordinate in scratch array
-      x(n) = smin + dsx*(float(jj - 1) + dx)
-      y(n) = tmin + dsy*(float(kk - 1) + dy)
+      x(n) = smin + dsx*(real(jj - 1) + dx)
+      y(n) = tmin + dsy*(real(kk - 1) + dy)
 c reset marker removal flag
       iflg = 1
 c find next grid crossing
@@ -1320,7 +1320,7 @@ c draw polyline
       call gpl(5,x,y)
 c draw ticks
       dx = 0.
-      if (ntx.gt.1) dx = (smax - smin)/float(ntx - 1)
+      if (ntx.gt.1) dx = (smax - smin)/real(ntx - 1)
 c sty = size of tick mark in y direction
       sty = .4*chh
 c draw ticks along x axis
@@ -1337,7 +1337,7 @@ c draw polylines
    10 continue
 c draw ticks along y axis
       dy = 0.
-      if (nty.gt.1) dy = (tmax - tmin)/float(nty - 1)
+      if (nty.gt.1) dy = (tmax - tmin)/real(nty - 1)
 c stx = size of tick marks in x direction
       stx = sty*(rx/ry)
       x(1) = smin
@@ -1434,7 +1434,7 @@ c draw polyline
       call gpl(5,x,y)
 c draw ticks
       dx = 0.
-      if (ntx.gt.1) dx = (smax - smin)/float(ntx - 1)
+      if (ntx.gt.1) dx = (smax - smin)/real(ntx - 1)
 c sty = size of tick mark in y direction
       sty = .4*chh
 c draw ticks along x axis
@@ -1451,7 +1451,7 @@ c draw polylines
    10 continue
 c draw ticks along y axis
       dy = 0.
-      if (nty.gt.1) dy = (tmax - tmin)/float(nty - 1)
+      if (nty.gt.1) dy = (tmax - tmin)/real(nty - 1)
 c stx = size of tick marks in x direction
       stx = sty*(rx/ry)
       x(1) = smin

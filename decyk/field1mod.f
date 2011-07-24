@@ -5,6 +5,7 @@
 ! Fortran90 interface to 1d PIC Fortran77 library field1lib.f
 ! field1mod.f contains procedures to manage guard cells and solve fields
 !             in fourier space:
+!             defines module field1d
 ! cguard => icguard1 copy guard cells for scalar or 2 and 3 component
 !           vector arrays with various interpolations.
 !           calls CGUARD1, BGUARD1, DGUARD1, CGUARD1L, BGUARD1L,
@@ -30,9 +31,11 @@
 ! pois_init => ipois1init initializes tables for field solvers.
 !              calls POISP1
 ! pois => ipois1 solves poisson equation for electric force, potential,
-!         or smoothing.
+!         or provides smoothing.
 !         calls POISP1
 ! bpois => jbpois13 solves vector poisson equation for magnetic force.
+!          calls BPOIS13
+! spois => ispois13 provides smoothing.
 !          calls BPOIS13
 ! apois => iapois13 solves vector poisson equation for vector potential.
 !          calls BPOIS13
@@ -85,12 +88,17 @@
 !           calls EPOIS13
 ! wpmxn => iwpmxn1 calculates maximum and minimum plasma frequency
 !          calls WPMXN1
+! addqei => iaddqei1 adds electron and ion densities.
+!           calls ADDQEI1
+! addqei => iaddqei1x adds electron and ion densities, and calculates
+!           maximum and minimum plasma frequency.
+!           calls ADDQEI1X
 ! baddext => ibaddext1adds constant to magnetic field in real space for
 !            1-2/2d code.
 !            calls BADDEXT1
 ! written by viktor k. decyk, ucla
 ! copyright 1999, regents of the university of california
-! update: july 6, 2010
+! update: july 18, 2010
 !
       use globals, only: LINEAR, QUADRATIC
       implicit none
@@ -98,9 +106,9 @@
       public :: LINEAR, QUADRATIC
       public :: cguard, sguard, aguard, pois_init, pois, bpois
       public :: ibpois, maxwel, emfield, emfieldr
-      public :: apois, avpot, avrpot, gtmodes, ptmodes
+      public :: spois, apois, avpot, avrpot, gtmodes, ptmodes
       public :: dcuperp, adcuperp, epois_init, epois, iepois
-      public :: wpmxn, baddext
+      public :: wpmxn, addqei, baddext
       public :: ivrcopy, ivccopy
 !
 ! define interface to original Fortran77 procedures
@@ -382,6 +390,32 @@
 !        end subroutine
 !     end interface
       interface
+         subroutine WPMXN1(qe,qi0,qbme,wpmax,wpmin,nx,nxe)
+         implicit none
+         integer :: nx, nxe
+         real :: qi0, qbme, wpmax, wpmin
+!        real, dimension(*) :: qe, qi
+         real :: qe, qi
+         end subroutine
+      end interface
+      interface
+         subroutine ADDQEI1(qe,qi,nx,nxe)
+         implicit none
+         integer :: nx, nxe
+!        real, dimension(*) :: qe, qi
+         real :: qe, qi
+         end subroutine
+      end interface
+      interface
+         subroutine ADDQEI1X(qe,qi,qbme,qbmi,wpmax,wpmin,nx,nxe)
+         implicit none
+         real :: qbme, qbmi, wpmax, wpmin
+         integer :: nx, nxe
+!        real, dimension(*) :: qe, qi
+         real :: qe, qi
+         end subroutine
+      end interface
+      interface
          subroutine BADDEXT1(byz,omy,omz,nx,nxe)
          implicit none
          integer :: nx, nxe
@@ -419,6 +453,10 @@
 !
       interface bpois
          module procedure jbpois13
+      end interface
+!
+      interface spois
+         module procedure ispois13
       end interface
 !
       interface apois
@@ -483,6 +521,11 @@
 !
       interface wpmxn
          module procedure iwpmxn1
+      end interface
+!
+      interface addqei
+         module procedure iaddqei1
+         module procedure iaddqei1x
       end interface
 !
       interface baddext
@@ -677,6 +720,32 @@
             endif
          end select
          end subroutine jbpois13
+!
+         subroutine ispois13(cu,byz,ffc,nx,inorder)
+! smoother for periodic 1d vector field
+         implicit none
+         integer :: nx
+         integer, optional :: inorder
+         real, dimension(:,:), pointer :: cu, byz
+         complex, dimension(:), pointer :: ffc
+! local data
+         integer :: isign = 2, nxvh, nxhd, order
+         real :: ax, affp, ci, wm
+         nxvh = size(cu,2)/2
+         nxhd = size(ffc,1)
+         order = QUADRATIC
+         if (present(inorder)) order = inorder
+         select case(size(cu,1))
+         case (2)
+            if (order==LINEAR) then
+               call BPOIS13(cu(1,1),byz(1,1),isign,ffc,ax,affp,ci,wm,nx,&
+     &nxvh,nxhd)
+            else
+               call BPOIS13(cu(1,2),byz(1,2),isign,ffc,ax,affp,ci,wm,nx,&
+     &nxvh,nxhd)
+            endif
+         end select
+         end subroutine ispois13
 !
          subroutine iapois13(cu,ayz,ffc,ci,wm,nx,inorder)
 ! calculates static vector potential for periodic 1d vector field
@@ -1118,6 +1187,44 @@
             call WPMXN1(qe(2),qi0,qbme,wpmax,wpmin,nx,nxe)
          endif
          end subroutine iwpmxn1
+!
+         subroutine iaddqei1(qe,qi,nx,inorder)
+! adds electron and ion densities
+         implicit none
+         integer :: nx
+         integer, optional :: inorder
+         real, dimension(:), pointer :: qe, qi
+! local data
+         integer :: nxe, order
+         nxe = size(qe,1)
+         order = QUADRATIC
+         if (present(inorder)) order = inorder
+         if (order==LINEAR) then
+            call ADDQEI1(qe(1),qi(1),nx,nxe)
+         else
+            call ADDQEI1(qe(2),qi(2),nx,nxe)
+         endif
+         end subroutine iaddqei1
+!
+         subroutine iaddqei1x(qe,qi,qbme,qbmi,wpmax,wpmin,nx,inorder)
+! adds electron and ion densities, and calculates maximum and minimum
+! plasma frequency
+         implicit none
+         integer :: nx
+         integer, optional :: inorder
+         real :: qbme, qbmi, wpmax, wpmin
+         real, dimension(:), pointer :: qe, qi
+! local data
+         integer :: nxe, order
+         nxe = size(qe,1)
+         order = QUADRATIC
+         if (present(inorder)) order = inorder
+         if (order==LINEAR) then
+            call ADDQEI1X(qe(1),qi(1),qbme,qbmi,wpmax,wpmin,nx,nxe)
+         else
+            call ADDQEI1X(qe(2),qi(2),qbme,qbmi,wpmax,wpmin,nx,nxe)
+         endif
+         end subroutine iaddqei1x
 !
          subroutine ibaddext1(byz,omy,omz,nx,inorder)
 ! adds constant to magnetic field

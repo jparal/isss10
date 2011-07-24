@@ -5,6 +5,7 @@
 ! Fortran90 interface to 1d PIC Fortran77 library init1lib.f
 ! init1mod.f contains interface procedures to initialize particle
 !            co-ordinates:
+!            defines module init1d
 ! distr => idistr1 initializes x and vx co-ordinates for 1d code.
 !          calls DISTR1
 ! distr => idistrh1 initializes x and vx,vy,vz co-ordinates for 
@@ -15,7 +16,7 @@
 !          calls GBDISTR1L 
 ! written by viktor k. decyk, ucla
 ! copyright 1999, regents of the university of california
-! update: july 7, 2011
+! update: july 16, 2011
 !
       use input1d
       implicit none
@@ -36,9 +37,17 @@
       public :: ndc, movion, sortime, nplot, sntasks
       public :: ndprof, ampdx, scaledx, shiftdx
       public :: modesxp, modesxa, modesxe
+      public :: ions1
+      public :: ntd, ntj, npxi, npxbi
+!     public :: ndd, ndj
+      public :: qmi, rmass, rtempxi, rtempyi, rtempzi, vxi0, vyi0, vzi0
+      public :: vdxi, vdyi, vdzi, rtempdxi, rtempdyi, rtempdzi
+      public :: ndprofi, ampdxi, scaledxi, shiftdxi, modesxd, modesxj
       public :: pot1d, vpot1d, em1d
       public :: t0, ceng, nprec, fpname, narec, faname, nerec, fename
       public :: distr, fdistr, vdistr
+      public :: den1d, vcur1d
+      public :: ndrec, fdname, njrec, fjname 
 !
 ! define interface to original Fortran77 procedures
       interface
@@ -62,9 +71,9 @@
       end interface
       interface
          subroutine FDISTR1(part,fnx,argx1,argx2,argx3,npx,idimp,nop,nx,&
-     &ierr)
+     &ipbc,ierr)
          implicit none
-         integer :: npx, idimp, nop, nx, ierr
+         integer :: npx, idimp, nop, nx, ipbc, ierr
          real :: argx1, argx2, argx3
 !        real, dimension(*) :: part
          real:: part
@@ -149,12 +158,12 @@
      &op,nx,ipbc)
          end subroutine idistrh1
 !
-         subroutine ifdistr1(part,nstart,nop,ampx,scalex,shiftx,npx,nx,n&
-     &dpro)
+         subroutine ifdistr1(part,nstart,nop,ampx,scalex,shiftx,npx,nx,i&
+     &pbc,ndpro)
 ! calculates initial particle co-ordinates in 1d
 ! with various density profiles
          implicit none
-         integer :: nstart, nop, npx, nx, ndpro
+         integer :: nstart, nop, npx, nx, ipbc, ndpro
          real :: ampx, scalex, shiftx
          real, dimension(:,:), pointer :: part
 ! local data
@@ -168,23 +177,23 @@
 ! uniform density
          if (ndpro==0) then
             call FDISTR1(part(1,nstart),FLDISTR1,zero,zero,zero,npx,idim&
-     &p,nop,nx,ierr)
+     &p,nop,nx,ipbc,ierr)
 ! linear density
          else if (ndpro==1) then
             call FDISTR1(part(1,nstart),FLDISTR1,ampx,sxi,shiftx,npx,idi&
-     &mp,nop,nx,ierr)
+     &mp,nop,nx,ipbc,ierr)
 ! sinusoidal density
          else if (ndpro==2) then
             call FDISTR1(part(1,nstart),FSDISTR1,ampx,sxi,shiftx,npx,idi&
-     &mp,nop,nx,ierr)
+     &mp,nop,nx,ipbc,ierr)
 ! gaussian density
          else if (ndpro==3) then
             call FDISTR1(part(1,nstart),FGDISTR1,ampx,sxi,shiftx,npx,idi&
-     &mp,nop,nx,ierr)
+     &mp,nop,nx,ipbc,ierr)
 ! hyperbolic secant squared density
          else if (ndpro==4) then
             call FDISTR1(part(1,nstart),FHDISTR1,ampx,sxi,shiftx,npx,idi&
-     &mp,nop,nx,ierr)
+     &mp,nop,nx,ipbc,ierr)
          endif
          end subroutine ifdistr1
 !

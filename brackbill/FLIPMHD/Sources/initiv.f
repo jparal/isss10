@@ -55,7 +55,7 @@
           bxr,byr,bzr,&
           xcenter,ycenter,zcenter,rex,rey,rez,rix,riy,riz,    &
           xvitmp,yvitmp,zvitmp,uvi,vvi,wvi,    &
-          modex, modey
+          modex, modey, perturbx, perturby, perturbz
 !
 !l    *** additional declarations from initiv ***
 !
@@ -71,6 +71,11 @@
       MAGNETIZED=.true.
       mgeom=1
       cntrun=.false.
+      modex=0
+      modey=0
+      perturbx=0
+      perturby=0
+      perturbz=0
 !
       imp=0
 !

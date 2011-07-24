@@ -14,11 +14,12 @@
 !      use gmres_com_M
       use cplot_com_M, ONLY : iplot
       use DXFiles
+      use ParticleLists
       use Timing
 
 !
       character*80 :: name
-      integer :: nvtxtmp,itsub,n,itlwd
+      integer :: nvtxtmp,itsub,n,itlwd,parcount
       real(double) :: epsuv,NewVolume,    &
           dtcntr,totnrg,t3,dtsq,vvolaxis,xx,    &
           told,tmin,trl,psi
@@ -57,10 +58,33 @@
 !     interpolate particle quantities to the grid
 !
 !
-      call parcelc(bmagx,bmagy,bmagx)
+      call parcelc(bmagx,bmagy,bmagz)
 !
 !
-       call parcelv
+      do n=1,nvtx
+         ijk=ijkvtx(n)
+         umom(ijk)=0.0
+         vmom(ijk)=0.0
+         wmom(ijk)=0.0
+         numberv(ijk)=0.0d0   
+         color(ijk)=0.0d0
+      enddo
+
+    call SingleToSpecies
+    do is=1,nsp
+       call parcelv(is)
+    enddo
+    call SpeciesToSingle
+    parcount=0
+    do n=1,ncells
+       ijk=ijkcell(n)
+       np=iphead(ijk)
+       do while (np.gt.0)
+          parcount=parcount+1
+          np=link(np)
+       enddo
+    enddo
+    write(*,*) 'flip3d_nol: parcount=',parcount
 !      call parcelv(ncells,ijkcell,nvtx,ijkvtx,nrg,iwid,jwid,kwid,dt,    &
 !          ijkctmp,    &
 !          itdim,iphead,iphd2,link,    &
@@ -159,7 +183,7 @@
                   ixto=ixto+1
  !
 !         call output
-          call DXOutput
+         call DXOutput
        iplot=iplot+1
                   if(dto(ixto).eq.0.0) ixto=ixto-1
                   tout=tout+dto(ixto)
@@ -274,11 +298,9 @@
 !
       call SetZeroVector(nvtxtmp,ijktmp2,jx,jy,jz)
 !
-      if(RESISTIVE) call resistive_diff
-!
 !
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-      error=3.e-2
+      error=1.e-2
       eps=1.e-5
 !
       call bc_ghost(ibp2,jbp2,kbp2,iwid,jwid,kwid,   &
@@ -387,16 +409,22 @@
 !
       call parmov(epsuv)
 !
-      call parcelv
-!      call parcelv(ncells,ijkcell,nvtx,ijkvtx,nrg,iwid,jwid,kwid,dt,    &
-!          ijkctmp,    &
-!          itdim,iphead,iphd2,link,    &
-!          ico,mass,pxi,peta,pzta,up,vp,wp,    &
-!          wate,    &
-!          mv,umom,vmom,wmom,numberv,color)
+      do n=1,nvtx
+         ijk=ijkvtx(n)
+         umom(ijk)=0.0
+         vmom(ijk)=0.0
+         wmom(ijk)=0.0
+         numberv(ijk)=0.0d0   
+         color(ijk)=0.0d0
+      enddo
+
+  call SingleToSpecies
+  do is=1,nsp
+      call parcelv(is)
+  enddo
+  call SpeciesToSingle
 !
-!
-      call parcelc(bmagx,bmagy,bmagx)
+      call parcelc(bmagx,bmagy,bmagz)
 !
 !dak         call second (t3)
     if(mod(ncyc,10).eq.1) then
@@ -404,8 +432,10 @@
    write(*,*) ' '
     endif
       write(*,1131) ncyc,t,dt,numit,iter_pois, efnrg(nh), eknrg(nh), ebnrg(nh), efnrg(nh)+eknrg(nh)+ebnrg(nh)
-      write(20,1131) ncyc,t,dt,numit,iter_pois, efnrg(nh), eknrg(nh), ebnrg(nh), efnrg(nh)+eknrg(nh)+ebnrg(nh)
- 1131 format(i4,2f11.4,2i5,4f11.4)
+      write(20,1131) ncyc,t,dt,numit,iter_pois,   &
+        efnrg(nh), eknrg(nh), ebnrg(nh),    &
+        efnrg(nh)+eknrg(nh)+ebnrg(nh),JouleHeating
+ 1131 format(i4,2f11.4,2i5,5f11.4)
     
          if (t.ge.twfin) then
             write(*,*) 'flip3d:  run ending'

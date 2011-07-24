@@ -17,13 +17,17 @@
       real(double) ::  rvvol,jdotb,bsq,zero
       integer :: n
 !
-      allocate (upv1(itdim), vpv1(itdim), wpv1(itdim))
+!     set b=0 in ghost cells
+!
+      call bc_field(ibp1+1,jbp1+1, kbp1+1,   &
+          bxl,byl,bzl)
+!
 !     calculate the electric field due to resistance
 !     to current flow
+!     note:  curlv returns curl times vertex volume
 !
       call curlv(nvtx,ijkvtx,      &
-          bxn,byn,bzn,jx,jy,jz)
-!jub     &     bmagx,bmagy,bmagz,jx,jy,jz)
+          bxl,byl,bzl,jx,jy,jz)
 !
 !     impose periodic boundary conditions
 !
@@ -33,49 +37,22 @@
           zero,                                &
           jx,jy,jz)
 !
-!     calculate the values of the magnetic field
-!     at the vertices of the mesh, and store in CurlEx,CurlEy,CurlEz
-!
-      call b_vtx(ncells,ijkcell,iwid,jwid,kwid,    &
-         nvtx,ijkvtx,    &
-         bxl,byl,bzl,    &
-         vol,upv1,    &
-         bxv,byv,bzv)
-!
 !     calculate the electric field
 !
       do n=1,nvtx
 !
-      ijk=ijkvtx(n)
+         ijk=ijkvtx(n)
 !
-      rvvol=1./vvol(ijk)
-      jx(ijk)=jx(ijk)*rvvol
-      jy(ijk)=jy(ijk)*rvvol
-      jz(ijk)=jz(ijk)*rvvol
-!
-      jdotb=bxv(ijk)*jx(ijk)+byv(ijk)*jy(ijk)+bzv(ijk)*jz(ijk)
-      bsq=bxv(ijk)**2+byv(ijk)**2+bzv(ijk)**2+1.d-20
-!
-!     the parallel current will not contribute to resistive diffusion
-!
-!jub      ex(ijk)=resistivity*(jx(ijk)-bxv(ijk)*jdotb/bsq)
-!jub      ey(ijk)=resistivity*(jy(ijk)-byv(ijk)*jdotb/bsq)
-!jub      ez(ijk)=resistivity*(jz(ijk)-bzv(ijk)*jdotb/bsq)
-!
-      ex(ijk)=resistivity*jx(ijk)
-      ey(ijk)=resistivity*jy(ijk)
-      ez(ijk)=resistivity*jz(ijk)
-!
-!     only the parallel current contributes to resistive diffusion
-!
-!jub      ex(ijk)=resistivity*bxv(ijk)*jdotb/bsq
-!jub      ey(ijk)=resistivity*byv(ijk)*jdotb/bsq
-!jub      ez(ijk)=resistivity*bzv(ijk)*jdotb/bsq
+         rvvol=1./vvol(ijk)
+         ex(ijk)=resistivity*jx(ijk)*rvvol
+         ey(ijk)=resistivity*jy(ijk)*rvvol
+         ez(ijk)=resistivity*jz(ijk)*rvvol
 !
       enddo
    
 !
 !     calculate the curl of the electric field
+!     note:  curlc divides by cell volume
 !
       call curlc(ncells,ijkcell,     &
           vol,     &
@@ -87,13 +64,13 @@
 !
 !     calculate the energy dissipated by resistive diffusion
 !
-      EdotJ(ijk)=ex(ijk)*jx(ijk)      &
+      EdotJ(ijk)=(ex(ijk)*jx(ijk)      &
           +ey(ijk)*jy(ijk)     &
-          +ez(ijk)*jz(ijk)
+          +ez(ijk)*jz(ijk))*vvol(ijk)
 !
       enddo
 !
-      JouleHeating=0.0d0
+      if(ncyc.eq.1) JouleHeating=0.0d0
 !
       do n=1,ncells
       ijk=ijkcell(n)
@@ -106,12 +83,14 @@
           +EdotJ(ijk+iwid+kwid)     &
           +EdotJ(ijk+iwid+jwid+kwid)     &
           +EdotJ(ijk+jwid+kwid))     &
-          *dt*vol(ijk)
+          *dt
 !
+!      Ohmic_heating(ijk)=0.5*((bxl(ijk)+bxn(ijk))*CurlEx(ijk)  &
+!                            +(byl(ijk)+byn(ijk))*CurlEy(ijk)  &
+!                            +(bzl(ijk)+bzn(ijk))*CurlEz(ijk))*vol(ijk)*dt
       JouleHeating=JouleHeating+Ohmic_heating(ijk)
 !
       enddo
 !
-      deallocate (upv1, vpv1, wpv1)
       return
       end subroutine resistive_diff

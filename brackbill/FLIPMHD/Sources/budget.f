@@ -45,6 +45,8 @@
       end do
 !
 !
+      call ReconnectedFlux
+!
       reconnected_flux(ncyc)=0.d0
 !
       istop=ibp2
@@ -166,19 +168,16 @@
          *vol(ijk)*dt/(mc(ijk)+1.e-10)                                    &
           +Ohmic_heating(ijk)/(mc(ijk)+1.e-10)
 !
-      voll=vol(ijk)*(1.+divu(ijk)*dt)
+!      voll=vol(ijk)*(1.+divu(ijk)*dt)
 !
-      dbvx(ijk)=(bxl(ijk)*voll-bxn(ijk)*vol(ijk)-divuphix(ijk)*dt)    &
+      dbvx(ijk)=(bxl(ijk)-bxn(ijk)-divuphix(ijk)*dt)*vol(ijk)    &
          /(mc(ijk)+1.d-20)
 !
-      dbvy(ijk)=(byl(ijk)*voll-byn(ijk)*vol(ijk)-divuphiy(ijk)*dt)    &
+      dbvy(ijk)=(byl(ijk)-byn(ijk)-divuphiy(ijk)*dt)*vol(ijk)    &
          /(mc(ijk)+1.d-20)
 !
-      dbvx(ijk)=(bzl(ijk)*voll-bzn(ijk)*vol(ijk)-divuphiz(ijk)*dt)    &
+      dbvz(ijk)=(bzl(ijk)-bzn(ijk)-divuphiz(ijk)*dt)*vol(ijk)    &
          /(mc(ijk)+1.d-20)
-!!!!         dbvx(ijk)=bmagx(ijk)*(bxl(ijk)-bxn(ijk))*vol(ijk)/(bxn(ijk)*mc(ijk)+1.d-20)
-!!!!         dbvy(ijk)=bmagy(ijk)*(byl(ijk)-byn(ijk))*vol(ijk)/(byn(ijk)*mc(ijk)+1.d-20)
-!!!!         dbvz(ijk)=bmagz(ijk)*(bzl(ijk)-bzn(ijk))*vol(ijk)/(bzn(ijk)*mc(ijk)+1.d-20)
 !
  1000 continue
 !

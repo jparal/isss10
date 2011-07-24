@@ -100,6 +100,11 @@ void epois13_(double complex *dcu, double complex *eyz, int *isign,
 void wpmxn1_(double *qe, double *qi0, double *qbme, double *wpmax,
              double *wpmin, int *nx, int *nxe);
 
+void addqei1_(double *qe, double *qi, int *nx, int *nxe);
+
+void addqei1x_(double *qe, double *qi, double *qbme, double *qbmi,
+               double *wpmax, double *wpmin, int *nx, int *nxe);
+      
 void baddext1_(double *byz, double *omy, double *omz, int *nx, int *nxe);
 
 void vrcopy1_(double *f, double *g, int *nx, int *ndim, int *nxv);
@@ -339,6 +344,19 @@ void epois13(double complex dcu[], double complex eyz[], int isign,
 void wpmxn1(double qe[], double qi0, double qbme, double *wpmax,
             double *wpmin, int nx, int nxe) {
    wpmxn1_(qe,&qi0,&qbme,wpmax,wpmin,&nx,&nxe);
+   return;
+}
+
+/*--------------------------------------------------------------------*/
+void addqei1(double qe[], double qi[], int nx, int nxe) {
+   addqei1_(qe,qi,&nx,&nxe);
+   return;
+}
+
+/*--------------------------------------------------------------------*/
+void addqei1x(double qe[], double qi[], double qbme, double qbmi,
+              double *wpmax, double *wpmin, int nx, int nxe) {
+   addqei1x_(qe,qi,&qbme,&qbmi,wpmax,wpmin,&nx,&nxe);
    return;
 }
 

@@ -799,6 +799,55 @@ Java_simul1d_field1d_wpmxn(JNIEnv *env, jclass cls, jdoubleArray qe,
 }
 
 JNIEXPORT void JNICALL
+Java_simul1d_field1d_addqei(JNIEnv *env, jclass cls, jdoubleArray qe,
+                            jdoubleArray qi, jint nx, jint inorder) {
+   jdouble *pqe = NULL, *pqi = NULL;
+   jboolean isc;
+   int nxe = (*env)->GetArrayLength(env,qe);
+// Extract array from Java
+   pqe = (*env)->GetDoubleArrayElements(env,qe,&isc);
+   pqi = (*env)->GetDoubleArrayElements(env,qi,&isc);
+   if (inorder==LINEAR) {
+      addqei1(&pqe[0],&pqi[0],nx,nxe);
+   }
+   else {
+      addqei1(&pqe[1],&pqi[1],nx,nxe);
+   }
+// Release the arrays back to Java
+   (*env)->ReleaseDoubleArrayElements(env,qe,pqe,0);
+   (*env)->ReleaseDoubleArrayElements(env,qi,pqi,0);
+   return;
+}
+
+JNIEXPORT void JNICALL
+Java_simul1d_field1d_addqeix(JNIEnv *env, jclass cls, jdoubleArray qe,
+                             jdoubleArray qi, jdouble qbme,
+                             jdouble qbmi, jdoubleArray wpmax,
+                             jdoubleArray wpmin, jint nx, jint inorder) {
+   jdouble *pqe = NULL, *pqi = NULL;
+   jdouble *pwpmax = NULL, *pwpmin = NULL;
+   jboolean isc;
+   int nxe = (*env)->GetArrayLength(env,qe);
+// Extract array from Java
+   pqe = (*env)->GetDoubleArrayElements(env,qe,&isc);
+   pqi = (*env)->GetDoubleArrayElements(env,qi,&isc);
+   pwpmax = (*env)->GetDoubleArrayElements(env,wpmax,&isc);
+   pwpmin = (*env)->GetDoubleArrayElements(env,wpmin,&isc);
+   if (inorder==LINEAR) {
+      addqei1x(&pqe[0],&pqi[0],qbme,qbmi,pwpmax,pwpmin,nx,nxe);
+   }
+   else {
+      addqei1x(&pqe[1],&pqi[1],qbme,qbmi,pwpmax,pwpmin,nx,nxe);
+   }
+// Release the arrays back to Java
+   (*env)->ReleaseDoubleArrayElements(env,qe,pqe,0);
+   (*env)->ReleaseDoubleArrayElements(env,qi,pqi,0);
+   (*env)->ReleaseDoubleArrayElements(env,wpmax,pwpmax,0);
+   (*env)->ReleaseDoubleArrayElements(env,wpmin,pwpmin,0);
+   return;
+}
+
+JNIEXPORT void JNICALL
 Java_simul1d_field1d_baddext(JNIEnv *env, jclass cls, jdoubleArray byz,
                              jdouble omy, jdouble omz, jint nx,
                              jint ndim, jint inorder) {

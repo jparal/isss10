@@ -115,6 +115,13 @@ public class field1d {
             double[] wpmin, int nx, int inorder);
 
    public native static void
+      addqei(double[] qe, double[] qi, int nx, int inorder);
+
+   public native static void
+      addqeix(double[] qe, double[] qi, double qbme, double qbmi,
+              double[] wpmax, double[] wpmin, int nx, int inorder);
+
+   public native static void
       baddext(double[] byz, double omy, double omz, int nx,
               int ndim, int inorder);
 

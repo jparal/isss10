@@ -1,7 +1,7 @@
 c general 1d gks graphics library
 c written by viktor k. decyk, ucla
 c copyright 1994, regents of the university of california
-c update: july 29, 2009
+c update: july 12, 2011
       subroutine GROPEN
 c this subroutine opens gks and activates standard workstation
 c colors and maximum size of display surface are also set
@@ -379,19 +379,19 @@ c set color representation
    10    continue
 c set specified palette
       else
-         apmx = 1./float(ipmx - 1)
+         apmx = 1./real(ipmx - 1)
          do 20 j = 1, ntc
          jc = j - 1
          j1 = 3*(j - 1)
-         red = float(ichar(pal(j1+1)))*apmx
-         green = float(ichar(pal(j1+2)))*apmx
-         blue = float(ichar(pal(j1+3)))*apmx
+         red = real(ichar(pal(j1+1)))*apmx
+         green = real(ichar(pal(j1+2)))*apmx
+         blue = real(ichar(pal(j1+3)))*apmx
 c set color representation
          call gscr(idwk,jc,red,green,blue)
    20    continue
       endif
 c find which indices correspond to prime colors
-      apmx = 1./float(ipmx - 1)
+      apmx = 1./real(ipmx - 1)
       do 40 i = 1, 8
       jmin = 0
       cdm = 3.0
@@ -412,9 +412,9 @@ c 256 colors
 c specified palette
       else
          j1 = 3*(j - 1)
-         cd = (float(ichar(pal(j1+1)))*apmx - redp(i))**2 + (float(ichar
-     1(pal(j1+2)))*apmx - greenp(i))**2  + (float(ichar(pal(j1+3)))*apmx
-     2 - bluep(i))**2
+         cd = (real(ichar(pal(j1+1)))*apmx - redp(i))**2 + (real(ichar(p
+     1al(j1+2)))*apmx - greenp(i))**2  + (real(ichar(pal(j1+3)))*apmx - 
+     2bluep(i))**2
       endif
       if (cd.le.cdm) then
          jmin = jc
@@ -449,14 +449,14 @@ c set color representation
             endif
 c specified palette
          else
-            apmx = 1./float(ipmx - 1)
-            r0 = float(ichar(pal(1)))*apmx
-            g0 = float(ichar(pal(2)))*apmx
-            b0 = float(ichar(pal(3)))*apmx
+            apmx = 1./real(ipmx - 1)
+            r0 = real(ichar(pal(1)))*apmx
+            g0 = real(ichar(pal(2)))*apmx
+            b0 = real(ichar(pal(3)))*apmx
             j1 = 3*jc
-            red = float(ichar(pal(j1+1)))*apmx
-            green = float(ichar(pal(j1+2)))*apmx
-            blue = float(ichar(pal(j1+3)))*apmx
+            red = real(ichar(pal(j1+1)))*apmx
+            green = real(ichar(pal(j1+2)))*apmx
+            blue = real(ichar(pal(j1+3)))*apmx
 c set color representation
             call gscr(idwk,0,red,green,blue)
             call gscr(idwk,jc,r0,g0,b0)
@@ -542,9 +542,9 @@ c suppress plots (nplt = 0)
          return
       endif
 c calculate old screen partition
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
 c find location of previous plot
       iplt = iplot - 1
       if (iplt.lt.0) iplt = iplt + nplot
@@ -559,13 +559,13 @@ c reset maximum number of plots per page
          nplot = 1
       endif
 c calculate new screen partition
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
 c find plot coordinates of previous plot in new screen partition
-      px = apl*float(ix) - 0.0001
-      py = apl*float(iy) + 0.0001
-      ix = abs(px)*float(npl)
-      iy = abs(1. - py)*float(npl)
+      px = apl*real(ix) - 0.0001
+      py = apl*real(iy) + 0.0001
+      ix = abs(px)*real(npl)
+      iy = abs(1. - py)*real(npl)
 c find new plot location
       iplt = 1 + (ix + iy*npl)
       if (iplt.ge.nplot) then
@@ -722,18 +722,18 @@ c find scales for plot
       endif
 c parameters for plots
       dx = xmax - xmin
-      if (nx.gt.1) dx = dx/float(nx - 1)
+      if (nx.gt.1) dx = dx/real(nx - 1)
       nxs = nxbs - 1
 c find location for plot
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
       iy = iplot/npl
       ix = iplot - iy*npl
       aplx = apl*rx
       aply = apl*ry
-      orx = aplx*float(ix)
-      ory = aply*float(npl1 - iy)
+      orx = aplx*real(ix)
+      ory = aply*real(npl1 - iy)
       smn = orx + aplx*smin
       smx = orx + aplx*smax
       tmn = ory + aply*tmin
@@ -792,7 +792,7 @@ c loop over number of blocks
          if (j.eq.nxb) npt = nptl
 c calculate x,y axes for block
          do 30 i = 1, npt
-         x(i) = xmin + dx*float(i + js - 1)
+         x(i) = xmin + dx*real(i + js - 1)
          y(i) = f(i+js,k)
    30    continue
 c draw polyline
@@ -820,7 +820,7 @@ c loop over number of blocks
          if (j.eq.nxb) npt = nptl
 c calculate x,y axes for block
          do 50 i = 1, npt
-         x(i) = xmin + dx*float(i + js - 1)
+         x(i) = xmin + dx*real(i + js - 1)
          y(i) = f(i+js,k)
    50    continue
 c dots
@@ -1055,15 +1055,15 @@ c find x scales for plot
       endif
       npts = nx - 1
 c find location for plot
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
       iy = iplot/npl
       ix = iplot - iy*npl
       aplx = apl*rx
       aply = apl*ry
-      orx = aplx*float(ix)
-      ory = aply*float(npl1 - iy)
+      orx = aplx*real(ix)
+      ory = aply*real(npl1 - iy)
       smn = orx + aplx*smin
       smx = orx + aplx*smax
       tmn = ory + aply*tmin
@@ -1260,7 +1260,7 @@ c draw polyline
       call gpl(5,x,y)
 c draw ticks
       dx = 0.
-      if (ntx.gt.1) dx = (smax - smin)/float(ntx - 1)
+      if (ntx.gt.1) dx = (smax - smin)/real(ntx - 1)
 c sty = size of tick mark in y direction
       sty = .4*chh
 c draw ticks along x axis
@@ -1277,7 +1277,7 @@ c draw polylines
    10 continue
 c draw ticks along y axis
       dy = 0.
-      if (nty.gt.1) dy = (tmax - tmin)/float(nty - 1)
+      if (nty.gt.1) dy = (tmax - tmin)/real(nty - 1)
 c stx = size of tick marks in x direction
       stx = sty*(rx/ry)
       x(1) = smin
@@ -1364,13 +1364,13 @@ c draw line or marker samples
       x(3) = x(1) + dx
       x(4) = x(2) - dx
       ax = orgx + 2.*stx
-      dy = (tmax - tmin - 4.*chh)/float(ngs + 1)
+      dy = (tmax - tmin - 4.*chh)/real(ngs + 1)
       ay = tmax - chh
 c draw samples, first cycle through colors, then line or marker types
       do 30 k = 1, ngs
       icol = k + 1 - ncols*(k/ncols)
       icol = kprime(icol+1)
-      y(1) = ay - dy*float(k)
+      y(1) = ay - dy*real(k)
       y(2) = y(1)
       if ((mks.eq.0).or.((mks.lt.0).and.(k.eq.1))) then
 c set polyline color index
@@ -1927,7 +1927,7 @@ c fill area
 c update workstation, perform
          call guwk(idwk,1)
 c calculate screen partition
-         npl1 = sqrt(float(nplot-1)) + 0.0001
+         npl1 = sqrt(real(nplot-1)) + 0.0001
          npl = npl1 + 1
 c if locator device is in event mode, check for events
          if (mode.eq.2) then
@@ -1972,8 +1972,8 @@ c find subregion location
      1)/(window(2) - window(1)))/rx - 0.0001
                py = (viewpt(3) + (py - window(3))*(viewpt(4) - viewpt(3)
      1)/(window(4) - window(3)))/ry + 0.0001
-               ix = abs(px)*float(npl)
-               iy = abs(1. - py)*float(npl)
+               ix = abs(px)*real(npl)
+               iy = abs(1. - py)*real(npl)
 c set return code
                irc = 16 + (ix + iy*npl)
                if (irc.gt.127) irc = 127
@@ -2065,7 +2065,7 @@ c store coordinates of menu box
       y(4) = tmax
       y(5) = tmax
 c find bottom of last menu box
-      tmin = tmax - float(nmax)*chh2
+      tmin = tmax - real(nmax)*chh2
 c clear workstation, always
       call gclrwk(idwk,1)
 c define and select identity transformation
@@ -2100,7 +2100,7 @@ c draw text
 c draw remaining numbers
          dxn = .1*(smax - smin)
          do 40 i = 1, 9
-         x(1) = smin + dxn*float(i)
+         x(1) = smin + dxn*real(i)
          x(2) = x(1)
 c draw polyline
          call gpl(2,x,y)
@@ -2323,7 +2323,7 @@ c draw zero
       is = ichar('0') - 1
 c draw remaining numbers
       do 50 i = 1, 10
-      x(1) = smin + dxn*float(i)
+      x(1) = smin + dxn*real(i)
       x(2) = x(1)
 c draw polyline
       call gpl(2,x,y)
@@ -2744,15 +2744,15 @@ c clear workstation, always
             call gclrwk(idwk,1)
          endif
 c find location for plot
-         npl1 = sqrt(float(nplot-1)) + 0.0001
+         npl1 = sqrt(real(nplot-1)) + 0.0001
          npl = npl1 + 1
-         apl = 1./float(npl)
+         apl = 1./real(npl)
          iy = iplot/npl
          ix = iplot - iy*npl
          aplx = apl*rx
          aply = apl*ry
-         orx = aplx*float(ix)
-         ory = aply*float(npl1 - iy)
+         orx = aplx*real(ix)
+         ory = aply*real(npl1 - iy)
          aplx = orx + aplx
          aply = ory + aply
 c define transformation for tektronix screen
@@ -2822,7 +2822,7 @@ c 1=foreground, 2=blue, 3=red, 4=yellow, 5=cyan, 6=magenta, 7=green
          call gsplci(it)
       endif
 c if = (0,1) = spot is (focused,defocused)
-      alw = float(if + 1)
+      alw = real(if + 1)
       if (if.eq.2) alw = 1.
 c set linewidth scale factor, 1.0 = nominal
       call gslwsc(alw)
@@ -2838,10 +2838,10 @@ c special point plot mode
       if (lc.gt.65) lc = lc - 60
       if (lc.gt.56) lc = lc - 9
 c intensity parameter, (0. < at < 1.), not implemented
-      at = float(lc)
+      at = real(lc)
       at = .015*10.**(at/31.)
 c if = (0,1) = spot is (focused,defocused)
-      alw = float(if + 1)
+      alw = real(if + 1)
 c set linewidth scale factor, 1.0 = nominal
       call gslwsc(alw)
 c read next data block
@@ -2939,7 +2939,7 @@ c Hi Y
 c Lo X
       if (lc.lt.96) go to 310
 c Lo Y
-  260 yl = float(lc)
+  260 yl = real(lc)
       iyf = 1
 c read additional address bytes
   270 ird = 5
@@ -2966,20 +2966,20 @@ c Extra Byte
       go to 260
 c Hi X
   290 if (iyf.eq.0) go to 300
-      xh = float(lc)
+      xh = real(lc)
       go to 270
 c Hi Y
-  300 yh = float(lc)
+  300 yh = real(lc)
       iyf = 0
       go to 270
 c Lo X
-  310 xl = float(lc)
+  310 xl = real(lc)
 c calculate address
       ai = (xh - 34.)*32. + xl
       aj = (yh - 35.)*32. + yl
       it = ie/4
-      ai = ai + .25*float(ie - 4*it)
-      aj = aj + .25*float(it)
+      ai = ai + .25*real(ie - 4*it)
+      aj = aj + .25*real(it)
       ai = ai
       aj = aj
 c perform clipping
@@ -3038,15 +3038,15 @@ c clear workstation, always
          call gclrwk(idwk,1)
       endif
 c find location for plot
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
       iy = iplot/npl
       ix = iplot - iy*npl
       aplx = apl*rx
       aply = apl*ry
-      orx = aplx*float(ix)
-      ory = aply*float(npl1 - iy)
+      orx = aplx*real(ix)
+      ory = aply*real(npl1 - iy)
       aplx = orx + aplx
       aply = ory + aply
 c define transformation for tektronix screen
@@ -3076,15 +3076,15 @@ c clear workstation, always
             call gclrwk(idwk,1)
          endif
 c find location for plot
-         npl1 = sqrt(float(nplot-1)) + 0.0001
+         npl1 = sqrt(real(nplot-1)) + 0.0001
          npl = npl1 + 1
-         apl = 1./float(npl)
+         apl = 1./real(npl)
          iy = iplot/npl
          ix = iplot - iy*npl
          aplx = apl*rx
          aply = apl*ry
-         orx = aplx*float(ix)
-         ory = aply*float(npl1 - iy)
+         orx = aplx*real(ix)
+         ory = aply*real(npl1 - iy)
          aplx = orx + aplx
          aply = ory + aply
 c define transformation for tektronix screen
@@ -3143,15 +3143,15 @@ c clear workstation, always
                call gclrwk(idwk,1)
             endif
 c find location for plot
-            npl1 = sqrt(float(nplot-1)) + 0.0001
+            npl1 = sqrt(real(nplot-1)) + 0.0001
             npl = npl1 + 1
-            apl = 1./float(npl)
+            apl = 1./real(npl)
             iy = iplot/npl
             ix = iplot - iy*npl
             aplx = apl*rx
             aply = apl*ry
-            orx = aplx*float(ix)
-            ory = aply*float(npl1 - iy)
+            orx = aplx*real(ix)
+            ory = aply*real(npl1 - iy)
             aplx = orx + aplx
             aply = ory + aply
 c define transformation for tektronix screen
@@ -3291,15 +3291,15 @@ c innermost loop over pixels in byte
          endif
       endif
 c find location for plot
-      npl1 = sqrt(float(nplot-1)) + 0.0001
+      npl1 = sqrt(real(nplot-1)) + 0.0001
       npl = npl1 + 1
-      apl = 1./float(npl)
+      apl = 1./real(npl)
       iy = iplot/npl
       ix = iplot - iy*npl
       sx = apl*rx
       sy = apl*ry
-      orx = sx*float(ix)
-      ory = sy*float(npl1 - iy)
+      orx = sx*real(ix)
+      ory = sy*real(npl1 - iy)
       aplx = orx + sx
       aply = ory + sy
 c normalize characters and location
@@ -3437,13 +3437,13 @@ c innermost loop over pixels in byte
 c calculate range for picture
 c x range
       if (isx.ge.lxs) then
-         sx = rx*float(lxs)/float(isx)
+         sx = rx*real(lxs)/real(isx)
       else
          sx = rx
       endif
 c y range
       if (isy.ge.lys) then
-         sy = ry*(1. - float(lys)/float(isy))
+         sy = ry*(1. - real(lys)/real(isy))
       else
          sy = zero
       endif

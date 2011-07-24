@@ -16,8 +16,8 @@ public class init1d {
 
    public native static void
       fdistr(double[] part, int nstart, int nop, double ampx,
-             double scalex, double shiftx, int npx, int nx, int ndpro,
-             int idimp);
+             double scalex, double shiftx, int npx, int nx, int ipbc,
+             int ndpro, int idimp);
 
    public native static void
       vdistr(double[] part, int nstart, int nop, double vtx,

@@ -29,7 +29,7 @@ c           performance algorithm.
 c RMOVE1 remove particles instead of reflecting at boundary.
 c written by viktor k. decyk, ucla
 c copyright 1994, regents of the university of california
-c update: june 29, 2010
+c update: july 12, 2011
 c-----------------------------------------------------------------------
       subroutine GPOST1(part,q,qm,nop,idimp,nxv)
 c for 1d code, this subroutine calculates particle charge density
@@ -336,10 +336,10 @@ c local data
       sum1 = 0.0d0
 c set boundary values
       edgelx = 0.0
-      edgerx = float(nx)
+      edgerx = real(nx)
       if (ipbc.eq.2) then
          edgelx = 1.0
-         edgerx = float(nx-1)
+         edgerx = real(nx-1)
       endif
       do 10 j = 1, nop
 c find interpolation weights
@@ -417,10 +417,10 @@ c begin first particle
       sum1 = 0.0d0
 c set boundary values
       edgelx = 0.0
-      edgerx = float(nx)
+      edgerx = real(nx)
       if (ipbc.eq.2) then
          edgelx = 1.0
-         edgerx = float(nx-1)
+         edgerx = real(nx-1)
       endif
       do 10 j = 1, nop1
 c find interpolation weights
@@ -518,10 +518,10 @@ c local data
       sum1 = 0.0d0
 c set boundary values
       edgelx = 0.0
-      edgerx = float(nx)
+      edgerx = real(nx)
       if (ipbc.eq.2) then
          edgelx = 1.0
-         edgerx = float(nx-1)
+         edgerx = real(nx-1)
       endif
       do 10 j = 1, nop
 c find interpolation weights
@@ -597,10 +597,10 @@ c begin first particle
       sum1 = 0.0d0
 c set boundary values
       edgelx = 0.0
-      edgerx = float(nx)
+      edgerx = real(nx)
       if (ipbc.eq.2) then
          edgelx = 1.0
-         edgerx = float(nx-1)
+         edgerx = real(nx-1)
       endif
       do 10 j = 1, nop1
 c find interpolation weights

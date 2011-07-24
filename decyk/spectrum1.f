@@ -7,7 +7,7 @@
 ! character*8 cp(ncc), where ncc is the number of character parameters
 ! dimension ip(nci), ap(ncr)
 ! where nci, ncr are the number of integer and real parameters
-! update: august 8, 2009
+! update: july 18, 2011
       program spectrum1
       use globals, only: LINEAR, QUADRATIC
       use fft1d
@@ -15,7 +15,7 @@
       use diag1d
       implicit none
       integer, parameter :: ncc=0, nci=9, ncr=4, nc=ncc+nci+ncr, ns=2
-      integer :: batch, ntd
+      integer :: batch
       integer :: ndd, ndp, nrec, modesx, lts, its, nts
       integer :: kxmax, kxmin, kxmx, kxmn
       integer :: ntq, ntc, nplot, nvf, istyle, itwo, iwmax
@@ -64,7 +64,7 @@
       equivalence (ntq, ip(6)), (ntc, ip(7)), (nplot, ip(8))
       equivalence (dmap, ip(9))
       equivalence (wmin, ap(1)), (wmax, ap(2)), (dw, ap(3))
-      equivalence (fmin,ap(4))
+      equivalence (fmin, ap(4))
 !
 ! define namelist
       namelist /inspect1/ batch, dmetaf, dtype, lts, its, nts, kxmin,   &
@@ -115,9 +115,9 @@
       data lts,its,nts /1,1,1/
 ! kxmin,kxmax = initial mode number and number of modes
       data kxmin,kxmax /0,1/
-! ntd = number of points in time display
+! ntq = number of points in time display
 ! ntc =  number of lag times in correlation
-      data ntd, ntc /1,0/
+      data ntq, ntc /1,0/
 ! wmin,wmax,dw = initial, final frequency and increment
       data wmin,wmax,dw /0.,2.0,.01/
 ! nplot = number of plots per page
@@ -136,6 +136,7 @@
       if (irc==0) then
          read (8,inspect1,iostat=irc)
          if ((irc==0).and.(batch/=0)) chr = dmetaf
+         ntq = ntd
          rewind 8
       endif
 ! get file name
@@ -157,10 +158,10 @@
             if (ndp==0) then
                nodesx = modesxp
                ftname = fpname
-!           else if (ndd==0) then
-!              nodesx = modesxd
-!              ftname = fdname
-!              cdrun0 = trim(cdrun0)//'d'
+            else if (ndd==0) then
+               nodesx = modesxd
+               ftname = fdname
+               cdrun0 = trim(cdrun0)//'d'
             endif
             nxh = 2**(indx-1)
             if (nodesx > nxh) nodesx = nxh
@@ -181,9 +182,9 @@
                go to 190
             endif
          endif
-         ndd = 1
-!        read (19,den1d,iostat=ndd)
-!        rewind 19
+!        ndd = 1
+         read (19,den1d,iostat=ndd)
+         rewind 19
          read (19,pot1d,iostat=ndp)
          rewind 19
          if ((ndp==0).and.(ndd==0)) then
@@ -237,18 +238,18 @@
          read (19,pot1d,iostat=ndp)
          modesx = modesxp
          nrec = nprec
-         fname = fpname; ftname = 'pot1out.'//cdrun
-         anorm = float((2**indx))/ceng
-!     else if (ndd==0) then
-!        read (19,den1d,iostat=ndd)
-!        modesx = modesxd
-!        nrec = ndrec; ntp = ntd
-!        cdrun = trim(cdrun)//'d'
-!        fname = fdname; ftname = 'den1out.'//cdrun
-!        anorm = 1.0
+         fname = fpname; ftname = 'pot1out.'//trim(cdrun)
+         anorm = real((2**indx))/ceng
+      else if (ndd==0) then
+         read (19,den1d,iostat=ndd)
+         modesx = modesxd
+         nrec = ndrec; ntp = ntd
+         cdrun = trim(cdrun)//'d'
+         fname = fdname; ftname = 'den1out.'//trim(cdrun)
+         anorm = 1.0
       endif
       if (nf==2) cdrun = trim(cdrun)//'-'//trim(cdrun0)
-      runid = 'spectrum.'//cdrun
+      runid = 'spectrum.'//trim(cdrun)
 ! text output file
       open(unit=18,file=trim(ftname),form='formatted',status='replace')
 ! echo input
@@ -412,11 +413,11 @@
       if (ndp==0) then
          label = ' POTENTIAL ENERGY VERSUS TIME'
          chr = ' RUNID='
-         chr = trim(chr)//cdrun
+         chr = trim(chr)//trim(cdrun)
          call DISPS(potc,label,time(1),time(nt),999,2,nt,chr,irc)
          if (irc==1) go to 180
 ! write out energies versus time
-         ftname = 'penergyt.'//cdrun
+         ftname = 'penergyt.'//trim(cdrun)
          open(unit=20,file=trim(ftname),form='formatted',status='replace&
      &')
          write (20,*) '#time wel'
@@ -428,14 +429,14 @@
          pots = pots/real(nt)
          sum1 = sum1/real(nt)
          write (ftname,991) sum1
-         chr = ' RUNID='//cdrun
+         chr = ' RUNID='//trim(cdrun)
          chr = trim(ftname)//chr
          label = ' TIME-AVERAGED POTENTIAL ENERGY VERSUS |K|'
          call DISPC(pots,pk,label,zsc,zst,2,modesx,modesx,1,chr,chrs,irc&
      &)
          if (irc==1) go to 180
 ! write out energies versus abs(k)
-         ftname = 'penergyk.'//cdrun
+         ftname = 'penergyk.'//trim(cdrun)
          open(unit=20,file=trim(ftname),form='formatted',status='replace&
      &')
          write (20,*) '#k wel'
@@ -478,24 +479,24 @@
       allocate(ps(2*iwmax),pcs(2*iwmax))
       allocate(pkw(modesx,2*iwmax),pckw(modesx,2*iwmax))
 ! open file for spectrum versus omega
-      ftname = 'spectrumw.'//cdrun
+      ftname = 'spectrumw.'//trim(cdrun)
       open(unit=22,file=trim(ftname),form='formatted',status='replace')
       write (22,*) '#spectrum versus omega'
 ! open file for  spectrum versus k
-      ftname = 'spectrumk.'//cdrun
+      ftname = 'spectrumk.'//trim(cdrun)
       open(unit=23,file=trim(ftname),form='formatted',status='replace')
       write (23,*) '#spectrum versus k'
 ! open file for  correlated spectrum versus omega
-      ftname = 'cspectrumw.'//cdrun
+      ftname = 'cspectrumw.'//trim(cdrun)
       open(unit=24,file=trim(ftname),form='formatted',status='replace')
       write (24,*) '#correlated spectrum versus omega'
 ! open file for  correlated spectrum versus k
-      ftname = 'cspectrumk.'//cdrun
+      ftname = 'cspectrumk.'//trim(cdrun)
       open(unit=25,file=trim(ftname),form='formatted',status='replace')
       write (25,*) '#correlated spectrum versus k'
 ! write out plasma wave dispersion relation
       vth = 1.0
-      ftname = 'plasmaw.'//cdrun
+      ftname = 'plasmaw.'//trim(cdrun)
       open(unit=26,file=trim(ftname),form='formatted',status='replace')
       at1 = pk(modesx)/100
       write (26,*) '#k w wfs'
@@ -682,9 +683,9 @@
       if (dmap > 0) then
          label = ' SPECTRUM OMEGA VERSUS K'
          if (ndp==0) then
-            chr = ' POTENTIAL, W > 0, RUNID='//cdrun
+            chr = ' POTENTIAL, W > 0, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            chr = ' ION DENSITY, W > 0, RUNID='//cdrun
+            chr = ' ION DENSITY, W > 0, RUNID='//trim(cdrun)
          endif
          jk = kxmx - kxmn + 1
          at1 = dnx*real(kxmn-1)
@@ -693,9 +694,9 @@
      &chr,nl,irc)
          if ((irc==1).or.(irc==3)) go to 50
          if (ndp==0) then
-            chr = ' POTENTIAL, W < 0, RUNID='//cdrun
+            chr = ' POTENTIAL, W < 0, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            chr = ' ION DENSITY, W < 0, RUNID='//cdrun
+            chr = ' ION DENSITY, W < 0, RUNID='//trim(cdrun)
          endif
          call CARPETL(pkw(1,iw1),label,at1,at2,wm(1),wm(iw),999,1,jk,iw,&
      &modesx,chr,nl,irc)
@@ -710,17 +711,17 @@
          enddo
          label = ' LOG SPECTRUM OMEGA VERSUS K'
          if (ndp==0) then
-            chr = ' POTENTIAL, W > 0, RUNID='//cdrun
+            chr = ' POTENTIAL, W > 0, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            chr = ' ION DENSITY, W > 0, RUNID='//cdrun
+            chr = ' ION DENSITY, W > 0, RUNID='//trim(cdrun)
          endif
          call CARPETL(pkw,label,at1,at2,wm(1),wm(iw),999,2,jk,iw,modesx,&
      &chr,nl,irc)
          if ((irc==1).or.(irc==3)) go to 50
          if (ndp==0) then
-            chr = ' POTENTIAL, W < 0, RUNID='//cdrun
+            chr = ' POTENTIAL, W < 0, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            chr = ' ION DENSITY, W < 0, RUNID='//cdrun
+            chr = ' ION DENSITY, W < 0, RUNID='//trim(cdrun)
          endif
          call CARPETL(pkw(1,iw1),label,at1,at2,wm(1),wm(iw),999,2,jk,iw,&
      &modesx,chr,nl,irc)
@@ -742,11 +743,11 @@
       enddo
       sum1 = sum1 + sum2 - ps(iw+1)
       write (ftname,992) sum1
-      label = ' INTEGRATED SPECTRUM VERSUS OMEGA'//ftname
+      label = ' INTEGRATED SPECTRUM VERSUS OMEGA'//trim(ftname)
       if (ndp==0) then
-         chr = ' POTENTIAL, RUNID='//cdrun
+         chr = ' POTENTIAL, RUNID='//trim(cdrun)
       else if (ndd==0) then
-         chr = ' ION DENSITY, RUNID='//cdrun
+         chr = ' ION DENSITY, RUNID='//trim(cdrun)
       endif
       ncd = 58
       call DISPR(ps,label,wm(1),wm(iw),999,1,0,iw,iw,itwo,chr(1:ncd),chr&
@@ -781,9 +782,9 @@
          if (dmap > 0) then
             label = ' CORRELATION SPECTRUM OMEGA VERSUS K'
             if (ndp==0) then
-               chr = ' POTENTIAL, W > 0, RUNID='//cdrun
+               chr = ' POTENTIAL, W > 0, RUNID='//trim(cdrun)
             else if (ndd==0) then
-               chr = ' ION DENSITY, W > 0, RUNID='//cdrun
+               chr = ' ION DENSITY, W > 0, RUNID='//trim(cdrun)
             endif
             jk = kxmx - kxmn + 1
             at1 = dnx*real(kxmn-1)
@@ -792,9 +793,9 @@
      &modesx,chr,nl,irc)
             if ((irc==1).or.(irc==3)) go to 50
             if (ndp==0) then
-               chr = ' POTENTIAL, W < 0, RUNID='//cdrun
+               chr = ' POTENTIAL, W < 0, RUNID='//trim(cdrun)
             else if (ndd==0) then
-               chr = ' ION DENSITY, W < 0, RUNID='//cdrun
+               chr = ' ION DENSITY, W < 0, RUNID='//trim(cdrun)
             endif
             call CARPETL(pckw(1,iw1),label,at1,at2,wm(1),wm(iw),999,1,jk&
      &,iw,modesx,chr,nl,irc)
@@ -809,17 +810,17 @@
             enddo
             label = ' LOG CORRELATION SPECTRUM OMEGA VERSUS K'
             if (ndp==0) then
-               chr = ' POTENTIAL, W > 0, RUNID='//cdrun
+               chr = ' POTENTIAL, W > 0, RUNID='//trim(cdrun)
             else if (ndd==0) then
-               chr = ' ION DENSITY, W > 0, RUNID='//cdrun
+               chr = ' ION DENSITY, W > 0, RUNID='//trim(cdrun)
             endif
             call CARPETL(pckw,label,at1,at2,wm(1),wm(iw),999,2,jk,iw,   &
      &modesx,chr,nl,irc)
             if ((irc==1).or.(irc==3)) go to 50
             if (ndp==0) then
-               chr = ' POTENTIAL, W < 0, RUNID='//cdrun
+               chr = ' POTENTIAL, W < 0, RUNID='//trim(cdrun)
             else if (ndd==0) then
-               chr = ' ION DENSITY, W < 0, RUNID='//cdrun
+               chr = ' ION DENSITY, W < 0, RUNID='//trim(cdrun)
             endif
             call CARPETL(pckw(1,iw1),label,at1,at2,wm(1),wm(iw),999,2,jk&
      &,iw,modesx,chr,nl,irc)
@@ -841,11 +842,12 @@
          enddo
          sum1 = sum1 + sum2 - pcs(iw+1)
          write (ftname,992) sum1
-         label = ' INTEGRATED CORRELATION SPECTRUM VS OMEGA'//ftname
+         label = ' INTEGRATED CORRELATION SPECTRUM VS OMEGA'//trim(ftnam&
+     &e)
          if (ndp==0) then
-            chr = ' POTENTIAL CORRELATION, RUNID='//cdrun
+            chr = ' POTENTIAL CORRELATION, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            chr = ' ION DENSITY CORRELATION, RUNID='//cdrun
+            chr = ' ION DENSITY CORRELATION, RUNID='//trim(cdrun)
          endif
          ncd = 58
          call DISPR(pcs,label,wm(1),wm(iw),999,1,0,iw,iw,itwo,chr(1:ncd)&
@@ -908,9 +910,9 @@
 ! time display of raw data
       if (ntd > 0) then
          if (ndp==0) then
-            label = ' POTENTIAL VERSUS TIME, RUNID='//cdrun
+            label = ' POTENTIAL VERSUS TIME, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            label = ' ION DENSITY VERSUS TIME, RUNID='//cdrun
+            label = ' ION DENSITY VERSUS TIME, RUNID='//trim(cdrun)
          endif
          write (chr,996) j1, dkx
          ncd = 58
@@ -940,9 +942,9 @@
          g(i) = alog(at1)
   140    continue
          if (ndp==0) then
-            label = ' LN |POTENTIAL| VERSUS TIME, RUNID='//cdrun
+            label = ' LN |POTENTIAL| VERSUS TIME, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            label = ' LN |ION DENSITY| VERSUS TIME, RUNID='//cdrun
+            label = ' LN |ION DENSITY| VERSUS TIME, RUNID='//trim(cdrun)
          endif
          write (chr,996) j1, dkx
          ncd = 20
@@ -955,9 +957,9 @@
          call SPECT(potc,wm,p,tt0,dts,nts,iw,nts2,iw2)
 ! power spectrum of raw data
          if (ndp==0) then
-            label = ' POTENTIAL VERSUS OMEGA, RUNID='//cdrun
+            label = ' POTENTIAL VERSUS OMEGA, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            label = ' ION DENSITY VERSUS OMEGA, RUNID='//cdrun
+            label = ' ION DENSITY VERSUS OMEGA, RUNID='//trim(cdrun)
          endif
          write (chr,996) j1, dkx
          ncd = 20
@@ -975,9 +977,9 @@
          it1 = ntd
          if (it1 > ntc) it1 = ntc
          if (ndp==0) then
-            label = ' POT CORRELATION VERSUS TIME, RUNID='//cdrun
+            label = ' POT CORRELATION VERSUS TIME, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            label = ' ION CORRELATION VERSUS TIME, RUNID='//cdrun
+            label = ' ION CORRELATION VERSUS TIME, RUNID='//trim(cdrun)
          endif
          write (chr,996) j1, dkx
          ncd = 20
@@ -1007,9 +1009,11 @@
          g(i) = alog(at1)
   150    continue
          if (ndp==0) then
-            label = ' LN |POT CORRELATION| VERSUS TIME, RUNID='//cdrun
+            label = ' LN |POT CORRELATION| VERSUS TIME, RUNID='//trim(cd&
+     &run)
          else if (ndd==0) then
-            label = ' LN |ION CORRELATION| VERSUS TIME, RUNID='//cdrun
+            label = ' LN |ION CORRELATION| VERSUS TIME, RUNID='//trim(cd&
+     &run)
          endif
          write (chr,996) j1, dkx
          ncd = 20
@@ -1022,9 +1026,9 @@
          call SPECT(potc,wm,pc,tt0,dts,ntc,iw,ntc2,iw2)
 ! power spectrum of correlated data
          if (ndp==0) then
-            label = ' POT CORRELATION VERSUS OMEGA, RUNID='//cdrun
+            label = ' POT CORRELATION VERSUS OMEGA, RUNID='//trim(cdrun)
          else if (ndd==0) then
-            label = ' ION CORRELATION VERSUS OMEGA, RUNID='//cdrun
+            label = ' ION CORRELATION VERSUS OMEGA, RUNID='//trim(cdrun)
          endif
          write (chr,996) j1, dkx
          ncd = 20

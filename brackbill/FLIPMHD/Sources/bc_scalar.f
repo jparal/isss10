@@ -17,13 +17,13 @@
 !     called by DIVB_PROJECTION, POISSON_CG, VINIT_GMRES
 !
 !
-      do 10 k=2,nzp
+      do 10 k=2,nzp-1
 !
 !     periodicity in the toroidal angle
 !
       if(periodic_y) then
 !
-      do 1 i=2,nxp
+      do 1 i=2,nxp-1
 !
       x(i,nyp,k)=x(i,2,k)
       x(i,1,k)=x(i,nyp-1,k)
@@ -32,10 +32,10 @@
 !
       else
 !
-      do i=2,nxp
+      do i=2,nxp-1
 !
       x(i,1,k)=x(i,2,k)
-!jub      x(i,nyp,k)=x(i,nyp-1,k)
+      x(i,nyp,k)=x(i,nyp-1,k)
 !
       enddo
 !
@@ -45,7 +45,7 @@
 !
       if(periodic_x) then
 !
-      do 2 j=2,nyp
+      do 2 j=1,nyp
 !
       x(nxp,j,k)=x(2,j,k)
       x(1,j,k)=x(nxp-1,j,k)
@@ -54,10 +54,10 @@
 !
       else
 !
-      do j=2,nyp
+      do j=1,nyp
 !
       x(1,j,k)=x(2,j,k)
-!jub      x(nxp,j,k)=x(nxp-1,j,k)
+      x(nxp,j,k)=x(nxp-1,j,k)
 !
       enddo
       endif
@@ -65,8 +65,8 @@
 !
       if (periodic_z) then
 !
-      do i=2,nxp
-      do j=2,nyp
+      do i=1,nxp
+      do j=1,nyp
 !
       x(i,j,nzp)=x(i,j,2)
       x(i,j,1)=x(i,j,nzp-1)
@@ -76,8 +76,8 @@
 !
       else
 !
-      do i=2,nxp
-      do j=2,nyp
+      do i=1,nxp
+      do j=1,nyp
 !
       x(i,j,1)=x(i,j,2)
       x(i,j,nzp)=x(i,j,nzp-1)

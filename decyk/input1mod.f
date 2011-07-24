@@ -2,10 +2,11 @@
 !
       module input1d
 !
-! input1mod.f defines namelists containing input and output variables.
+! input1mod.f defines namelists containing input and output variables:
+!             defines module input1d
 ! written by viktor k. decyk, ucla
 ! copyright 2011, regents of the university of california
-! update: july 6, 2011
+! update: july 16, 2011
 !
       use globals, only: LINEAR, QUADRATIC, STANDARD, LOOKAHEAD, VECTOR,&
      & PERIODIC_2D, DIRICHLET_2D
@@ -27,8 +28,16 @@
       public :: ndc, movion, sortime, nplot, sntasks
       public :: ndprof, ampdx, scaledx, shiftdx
       public :: modesxp, modesxa, modesxe
+      public :: ions1
+      public :: ntd, ntj, npxi, npxbi
+!     public :: ndd, ndj
+      public :: qmi, rmass, rtempxi, rtempyi, rtempzi, vxi0, vyi0, vzi0
+      public :: vdxi, vdyi, vdzi, rtempdxi, rtempdyi, rtempdzi
+      public :: ndprofi, ampdxi, scaledxi, shiftdxi, modesxd, modesxj
       public :: pot1d, vpot1d, em1d
       public :: t0, ceng, nprec, fpname, narec, faname, nerec, fename
+      public :: den1d, vcur1d
+      public :: ndrec, fdname, njrec, fjname 
 !
 ! Namelist Input
       save
@@ -119,6 +128,45 @@
      &sortime, nplot, sntasks, ndprof, ampdx, scaledx, shiftdx, modesxp,&
      &modesxa, modesxe
 !
+! Namelist for Ions
+! ntd, ndd = number of time steps between ion density diagnostic
+! ntj, ndj = number of time steps between ion current diagnostic
+      integer :: ntd = 0, ntj = 0
+!     integer :: ndd = 0, ndj = 0
+! npxi = initial number of ions distributed in x direction
+      integer :: npxi =  384
+! npxbi = initial number of ions in beam in x direction
+      integer :: npxbi =   0
+! qmi = charge on ion, in units of e
+! rmass = ion/electron mass ratio
+      real :: qmi = 1.0, rmass = 100.0
+! rtempxi/rtempyi/rtempzi = electron/ion temperature ratio of background
+! ions in x/y/z direction
+      real :: rtempxi = 1.0, rtempyi = 1.0, rtempzi = 1.0
+! vxi0/vyi0/vzi0 = drift velocity of ions in x/y/z direction
+      real :: vxi0 = 0.0, vyi0 = 0.0, vzi0 = 0.0
+! vdxi/vdyi/vdzi = drift velocity of beam ions in x/y/z direction
+      real :: vdxi = 0.0, vdyi = 0.0, vdzi = 0.0
+! rtempdxi/rtempdyi/rtempdzi = electron/ion temperature ratio of beam
+! ions in x/y/z direction
+      real :: rtempdxi = 1.0, rtempdyi = 1.0, rtempdzi = 1.0
+! ndprofi = ion profile (uniform=0,linear=1,sinusoidal=2,gaussian=3,
+!                        hyperbolic secant squared=4)
+      integer :: ndprofi = 0
+! ampdxi = amplitude of ion density compared to uniform in x
+! scaledxi = scale length for spatial ion coordinate in x
+! shiftdxi = shift of spatial ion coordinate in x
+      real :: ampdxi = 0.0, scaledxi = 0.0, shiftdxi = 0.0
+! modesxd = number of modes in x to keep for ion density diagnostic
+      integer :: modesxd = 11
+! modesxj = number of modes in x to keep for ion current diagnostic
+      integer :: modesxj = 11
+! define namelist
+      namelist /ions1/ ntd, ntj, npxi, npxbi, qmi, rmass, rtempxi,      &
+     &rtempyi, rtempzi, vxi0, vyi0, vzi0, vdxi, vdyi, vdzi, rtempdxi,   &
+     &rtempdyi, rtempdzi, ndprofi, ampdxi, scaledxi, shiftdxi, modesxd, &
+     &modesxj
+!
 ! t0 = initial time value
 ! ceng = energy normalization
       real :: t0 = 0.0, ceng = 1.0
@@ -149,5 +197,23 @@
 ! define namelist
       namelist /em1d/ idrun, indx, nte, modesxe, psolve, ndim, omx, omy,&
      &omz, ci, nerec, t0, tend, dt, ceng, fename
+!
+! Namelist output for ion density diagnostic
+! ndrec = current record number for ion density writes
+      integer :: ndrec = 0
+! fdname = file name for ion density diagnostic
+      character(len=32) :: fdname
+! define namelist
+      namelist /den1d/ idrun, indx, ntd, modesxd, psolve, ndrec, t0,    &
+     &tend, dt, ceng, fdname 
+!
+! Namelist output for ion current diagnostic
+! njrec = current record number for ion current writes
+      integer :: njrec = 0
+! fjname = file name for ion current diagnostic
+      character(len=32) :: fjname
+! define namelist
+      namelist /vcur1d/ idrun, indx, ntj, modesxj, psolve, ndim, omx,   &
+     &omy, omz, ci, njrec, t0, tend, dt, ceng, fjname 
 !
       end module input1d

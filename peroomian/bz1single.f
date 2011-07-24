@@ -157,8 +157,8 @@ c-----------------------------------------------------
        open(31,file=fname1,status='unknown')                        
                                                                                 
                                                                                 
-       open(47,file='phil2.v2',status='old')                        
-       do 17 jj=1,nskip
+       open(47,file='./phil2.v2',status='old')                        
+       do 17 jj=1,nskiip
 	  read(47,*) rj,rj,rj
 17     continue
        do 18 jj=1,nabc

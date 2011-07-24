@@ -9,7 +9,7 @@ void distr1h(double part[], double vtx, double vty, double vtz,
 
 void fdistr1(double part[], double (*fnx_)(), double argx1,
              double argx2, double argx3, int npx, int idimp, int nop,
-             int nx, int *ierr);
+             int nx, int ipbc, int *ierr);
 
 double fldistr1_(double *x, double *anlx, double *anxi, double *shift,
                  int *intg);

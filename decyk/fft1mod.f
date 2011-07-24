@@ -3,6 +3,7 @@
       module fft1d
 !
 ! fft1mod.f contains interface procedures to perform ffts:
+!           defines module fft1d
 ! fft_init => ifft1rxinit initializes real to complex fft tables.
 !             calls FFT1RX
 ! fft => ifft1rx performs 1d real to complex fft and its inverse.
@@ -29,7 +30,7 @@
 ! Fortran90 interface to 1d PIC Fortran77 library fft1lib.f
 ! written by viktor k. decyk, ucla
 ! copyright 1999, regents of the university of california
-! update: july 8, 2010
+! update: july 12, 2010
 !
       use globals, only: LINEAR, QUADRATIC
       use diag1d, only: wtimer

@@ -1,6 +1,6 @@
 c parsing library
 c copyright 1991, regents of the university of california
-c update: february 24, 2003
+c update: july 12, 2011
       subroutine vinput(iunit,junit,kunit,icmpl,ircopy)
 c this subroutine interactively modifies and updates input variables.
 c current values of the input variables, in namelist format, can be read
@@ -1145,8 +1145,8 @@ c main loop
          go to 10
       endif
    20 ival = num/norm
-      if (ie.eq.0) val = float(num)/float(norm)
-      if (ie.eq.1) val = (float(mnum)*10.**ival)/float(mnorm)
+      if (ie.eq.0) val = real(num)/real(norm)
+      if (ie.eq.1) val = (real(mnum)*10.**ival)/real(mnorm)
       return
       end
       subroutine frmtv(code,icode,value,cvalue,iquote,chrv,lv)
@@ -1215,7 +1215,7 @@ c large integer
 c floating point type
       elseif (itype.eq.2) then
 c few digits
-        if ((absv.lt.big).and.(absv.eq.(float(int(big*absv))/big))) then
+        if ((absv.lt.big).and.(absv.eq.(real(int(big*absv))/big))) then
             cfmt(13:17) = 'f8.3)'
             lv = nv + 11
 c many digits

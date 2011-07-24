@@ -21,7 +21,7 @@ c GSDCJPOST1L deposits momentum flux, acceleration density and current
 c             density, linear interpolation, LOOKAHEAD optimization.
 c written by viktor k. decyk, ucla
 c copyright 2006, regents of the university of california
-c update: august 13, 2009
+c update: july 12, 2011
 c-----------------------------------------------------------------------
       subroutine GMJPOST1(part,amu,qm,nop,idimp,nxv)
 c for 1-2/2d code, this subroutine calculates particle momentum flux
@@ -55,7 +55,7 @@ c nxv = second dimension of flux array, must be >= nx+3
 c find interpolation weights
       do 10 j = 1, nop
       nn = part(1,j) + .5
-      dxp = part(1,j) - float(nn)
+      dxp = part(1,j) - real(nn)
       nn = nn + 1
       amx = qm*(.75 - dxp*dxp)
       dxl = qmh*(.5 - dxp)**2
@@ -105,14 +105,14 @@ c nxv = second dimension of flux array, must be >= nx+3
       if (nop.lt.1) return
 c begin first particle
       nnn = part(1,1) + .5
-      dxn = part(1,1) - float(nnn)
+      dxn = part(1,1) - real(nnn)
       qmh = .5*qm
 c find interpolation weights
       do 10 j = 2, nop
       nn = nnn + 1
       nnn = part(1,j) + .5
       dxp = dxn
-      dxn = part(1,j) - float(nnn)
+      dxn = part(1,j) - real(nnn)
       amx = qm*(.75 - dxp*dxp)
       dxl = qmh*(.5 - dxp)**2
       dxp = qmh*(.5 + dxp)**2
@@ -253,7 +253,7 @@ c nxv = second dimension of field arrays, must be >= nx+3
       do 10 j = 1, nop
 c find interpolation weights
       nn = part(1,j) + .5
-      dxp = part(1,j) - float(nn)
+      dxp = part(1,j) - real(nn)
       nn = nn + 1
       amx = .75 - dxp*dxp
       dxl = .5*(.5 - dxp)**2
@@ -428,7 +428,7 @@ c nxv = second dimension of field arrays, must be >= nx+3
       if (nop.lt.1) return
 c begin first particle
       nnn = part(1,1) + .5
-      dxn = part(1,1) - float(nnn)
+      dxn = part(1,1) - real(nnn)
       nop1 = nop - 1
       qtmh = .5*qbm*dt
       dti = 1.0/dt
@@ -437,7 +437,7 @@ c find interpolation weights
       nn = nnn + 1
       nnn = part(1,j+1) + .5
       dxp = dxn
-      dxn = part(1,j+1) - float(nnn)
+      dxn = part(1,j+1) - real(nnn)
       amx = .75 - dxp*dxp
       dxl = .5*(.5 - dxp)**2
       dxp = .5*(.5 + dxp)**2
@@ -640,7 +640,7 @@ c nxv = second dimension of flux array, must be >= nx+1
 c find interpolation weights
       do 10 j = 1, nop
       nn = part(1,j) 
-      dxp = qm*(part(1,j) - float(nn))
+      dxp = qm*(part(1,j) - real(nn))
       nn = nn + 1
       amx = qm - dxp
 c deposit momentum flux
@@ -684,13 +684,13 @@ c nxv = second dimension of flux array, must be >= nx+1
       if (nop.lt.1) return
 c begin first particle
       nnn = part(1,1)
-      dxn = qm*(part(1,1) - float(nnn))
+      dxn = qm*(part(1,1) - real(nnn))
 c find interpolation weights
       do 10 j = 2, nop
       nn = nnn + 1
       nnn = part(1,j)
       dxp = dxn
-      dxn = qm*(part(1,j) - float(nnn))
+      dxn = qm*(part(1,j) - real(nnn))
       amx = qm - dxp
 c deposit momentum flux
       vx = part(2,j-1)
@@ -814,7 +814,7 @@ c nxv = second dimension of field arrays, must be >= nx+1
       do 10 j = 1, nop
 c find interpolation weights
       nn = part(1,j)
-      dxp = part(1,j) - float(nn)
+      dxp = part(1,j) - real(nn)
       nn = nn + 1
       amx = 1.0 - dxp
 c find electric field
@@ -970,7 +970,7 @@ c nxv = second dimension of field arrays, must be >= nx+1
       if (nop.lt.1) return
 c begin first particle
       nnn = part(1,1)
-      dxn = part(1,1) - float(nnn)
+      dxn = part(1,1) - real(nnn)
       nop1 = nop - 1
       qtmh = .5*qbm*dt
       dti = 1.0/dt
@@ -979,7 +979,7 @@ c find interpolation weights
       nn = nnn + 1
       nnn = part(1,j+1)
       dxp = dxn
-      dxn = part(1,j+1) - float(nnn)
+      dxn = part(1,j+1) - real(nnn)
       amx = 1.0 - dxp
 c find electric field
       dx = amx*fxyz(1,nn) + dxp*fxyz(1,nn+1)

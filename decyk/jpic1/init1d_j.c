@@ -47,7 +47,7 @@ JNIEXPORT void JNICALL
 Java_simul1d_init1d_fdistr(JNIEnv *env, jclass cls, jdoubleArray part,
                            jint nstart, jint nop, jdouble ampx,
                            jdouble scalex, jdouble shiftx, jint npx,
-                           jint nx, jint ndpro, jint idimp) {
+                           jint nx, jint ipbc, jint ndpro, jint idimp) {
    jdouble *ppart = NULL;
    jboolean isc;
    int ns = idimp*(nstart - 1);
@@ -60,27 +60,27 @@ Java_simul1d_init1d_fdistr(JNIEnv *env, jclass cls, jdoubleArray part,
 // uniform density
    if (ndpro==0) {
       fdistr1(&ppart[ns],fldistr1_,zero,zero,zero,npx,idimp,nop,nx,
-              &ierr);
+              ipbc,&ierr);
    }
 // linear density
    else if (ndpro==1) {
       fdistr1(&ppart[ns],fldistr1_,ampx,sxi,shiftx,npx,idimp,nop,nx,
-              &ierr);
+              ipbc,&ierr);
    }
 // sinusoidal density
    else if (ndpro==2) {
       fdistr1(&ppart[ns],fsdistr1_,ampx,sxi,shiftx,npx,idimp,nop,nx,
-              &ierr);
+              ipbc,&ierr);
    }
 // gaussian density
    else if (ndpro==3) {
       fdistr1(&ppart[ns],fgdistr1_,ampx,sxi,shiftx,npx,idimp,nop,nx,
-              &ierr);
+              ipbc,&ierr);
    }
 // hyperbolic secant squared density
    else if (ndpro==4) {
       fdistr1(&ppart[ns],fhdistr1_,ampx,sxi,shiftx,npx,idimp,nop,nx,
-              &ierr);
+              ipbc,&ierr);
    }
 // Release the arrays back to Java
    (*env)->ReleaseDoubleArrayElements(env,part,ppart,0);

@@ -7,5 +7,5 @@
  QME =  -1.000,  VTX =   1.000, VX0 =   0.000
  AX = .912871
  MODESXP = 40
- NPLOT = 0, SORTIME = 0
+ NPLOT = 4, SORTIME = 0
  /

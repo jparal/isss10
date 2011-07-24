@@ -5,8 +5,8 @@
 #JHEADERS1 = /System/Library/Frameworks/JavaVM.framework/Headers
 #JHEADERS2 =
 # OpenJDK Linux
-JHEADERS1 = /usr/lib/jvm/java-6-openjdk/include/
-JHEADERS2 = -I /usr/lib/jvm/java-6-openjdk/include/linux
+JHEADERS1 = /usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64/include
+JHEADERS2 = -I /usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64/include/linux
 
 CC = gcc
 CCOPTS = -O -fPIC
@@ -40,7 +40,7 @@ init1lib_f.o : init1lib_f.c
 
 diag1lib_f.o : diag1lib_f.c
 	$(CC) $(CCOPTS) -c diag1lib_f.c
-
+	
 bpush1lib_f.o : bpush1lib_f.c
 	$(CC) $(CCOPTS) -c bpush1lib_f.c
 
@@ -106,7 +106,7 @@ dbeps1.class : dbeps1.java
 
 jclean :
 	make -C simul1d clean
-
+	
 clean : jclean
 	rm -f *.class *.o *.a $(HOBJS)
 

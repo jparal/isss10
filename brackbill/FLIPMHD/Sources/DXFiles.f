@@ -141,7 +141,7 @@
           bxv, byv, bzv,                 &
           jx, jy, jz,                    &
           mv, vol, vvol,                 &
-          SpeciesName,                   &
+          mv_s, SpeciesName,                   &
           rho
       use cplot_com_M, ONLY : iout, iplot
 !
@@ -156,20 +156,18 @@
             write(DXUnit(2,is),*)'object ',iplot,' class array type float rank 0 items ',nvtx
             write(DXUnit(2,is),*)'data follows'
                do n=1,nvtx
-               write(DXUNit(2,is),101) mv(ijkvtx(n))/vvol(ijkvtx(n))
+               write(DXUNit(2,is),101) mv_s(ijkvtx(n),is)/vvol(ijkvtx(n))
                enddo
             enddo
          endif
 !
          if(l.eq.1.and.iout(1).gt.0) then
 !
-         do is=1,nsp
-            write(DXUNit(1,is),*)'object',iplot,' class array type float rank 1 shape 3',  &
+            write(DXUNit(1,1),*)'object',iplot,' class array type float rank 1 shape 3',  &
               ' items ',nvtx,' data follows'
                do n=1,nvtx
-                  write(DXUnit(1,is),105) ul(ijkvtx(n)), vl(ijkvtx(n)),wl(ijkvtx(n))
+                  write(DXUnit(1,1),105) ul(ijkvtx(n)), vl(ijkvtx(n)),wl(ijkvtx(n))
                enddo
-         enddo
          endif
 
 
