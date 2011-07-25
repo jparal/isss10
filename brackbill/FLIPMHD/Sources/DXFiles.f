@@ -96,7 +96,10 @@
       use cophys_com_M, ONLY : dx, dy, dz
       use cplot_com_M, ONLY : iout
 !
+      real(double) :: zero
       integer :: l, is
+
+      zero = 0.0
 !
       do l=1,25
          if(iout(l).gt.0) then

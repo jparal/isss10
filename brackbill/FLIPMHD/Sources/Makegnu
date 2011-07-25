@@ -1,7 +1,7 @@
 # Tunable parameters
 F90= gfortran
-LD= gfortran
-LIBS = /usr/local/lib/libgomp.a
+LD= gcc -lgfortran -fopenmp
+#LIBS = /usr/lib/i386-linux-gnu/gcc/i686-linux-gnu/4.5/libgomp.a
 #LIBS = /Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin10/4.2.1/x86_64/libgomp.a
 CMD =            xflip
 FFLAGS = -O3 -fopenmp   -ffree-form 
